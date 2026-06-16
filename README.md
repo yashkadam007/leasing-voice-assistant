@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M05 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, and Markdown knowledge-base retrieval. Agent behavior, property resolution, prospect capture gating, and voice integration are planned later milestones.
+M06 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, and deterministic property-resolution state. Grounded answer orchestration, prospect capture gating, and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M05 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M05 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, or knowledge-base retrieval. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M06 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, or property resolution. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Local Database
 
@@ -32,6 +32,10 @@ The generated database lives under `data/runtime/`, which is ignored by Git. Com
 ## Knowledge Base
 
 Committed knowledge-base source documents live in `data/kb/`. The M05 retriever reads Markdown files from that directory, splits them by headings, and returns source-attributed snippets for policy, FAQ, lease-term, and property-description questions.
+
+## Property Resolution
+
+`leasing_voice_assistant.property_resolution.PropertyResolver` tracks property and optional unit context across text turns using deterministic database-tool evidence. It returns explicit resolution state for resolved, probable, ambiguous, and unresolved cases, and marks ambiguous or unresolved context as not write-ready.
 
 ## Run
 

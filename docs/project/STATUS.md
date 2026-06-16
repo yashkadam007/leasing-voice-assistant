@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M05 knowledge-base ingestion and retrieval is complete.
+- **Project state:** M06 property-resolution state is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M05 is complete.
-- **Latest completed milestone:** M05 Knowledge-base ingestion and retrieval.
-- **Next milestone:** M06 Property-resolution state, pending ADR.
-- **Latest ADR:** `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md` (Accepted).
+- **Active milestone:** None; M06 is complete.
+- **Latest completed milestone:** M06 Property-resolution state.
+- **Next milestone:** M07 Grounded answer orchestration, pending ADR.
+- **Latest ADR:** `docs/decisions/0006-property-resolution-state.md` (Accepted).
 
 ## Completed Work
 
@@ -39,19 +39,22 @@
 - Added `leasing_voice_assistant.knowledge_base` with Markdown ingestion, stable source-section IDs, bounded snippets, deterministic lexical scoring, and source metadata.
 - Extended `KnowledgeSnippet` with optional title, section heading, and metadata fields while preserving the existing retriever protocol.
 - Added knowledge-base tests for section ingestion, FAQ retrieval, property-description retrieval, source attribution, result and snippet limits, missing directories, and unknown-query behavior.
+- ADR 0006 accepted for deterministic property-resolution state.
+- Added `leasing_voice_assistant.property_resolution` with explicit resolution state, confidence, candidates, evidence, clarification reasons, and write-readiness classification.
+- Added property-resolution tests for exact property references, context reuse, unit-hint narrowing, ambiguous property references, ambiguous unit references, no-match behavior, and replacing prior context with a new explicit property.
 
 ## Work Currently In Progress
 
-- None. Stop before M06 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M07 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 33 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 40 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 14 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 14 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 16 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 16 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
@@ -63,7 +66,8 @@
 - Persistence tests confirm migrations create the schema, seed loading is idempotent, seeded property/unit facts are readable, prospect upsert matches normalized phone numbers, and repeated interest writes do not create duplicates.
 - Database-tool tests confirm exact, ambiguous, and no-match property search behavior, empty queries do not return every property, unit list limits are enforced, and unit fact lookups return structured grounding evidence without fallback facts for missing units.
 - Knowledge-base tests confirm Markdown sections load with stable source metadata, FAQ and property-description queries retrieve relevant snippets, result and snippet limits are enforced, missing KB directories are safe, and unknown queries return no snippets.
-- No real provider calls, credentials, embeddings, vector database, agent prompts, prospect capture gate, or voice pipeline were added.
+- Property-resolution tests confirm exact references resolve property context, prior context supports follow-up references, unit hints narrow to a unique unit when evidence is sufficient, ambiguous property and unit references require clarification, no-match turns remain unresolved, and new explicit property references replace prior context.
+- No real provider calls, credentials, embeddings, vector database, agent prompts, answer orchestration, prospect writes, prospect capture gate, or voice pipeline were added.
 
 ## Known Failures
 
@@ -73,14 +77,14 @@
 
 ## Blockers
 
-- None for M05.
+- None for M06.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
 - Real model, STT, and TTS providers.
-- Write confirmation and confidence policy.
+- Write confirmation and confidence policy beyond property-resolution write readiness.
 - Demo recording path.
 
 ## Assumptions
@@ -102,43 +106,35 @@
 
 ## Files Changed In Current Milestone
 
-- `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md`
+- `docs/decisions/0006-property-resolution-state.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
 - `README.md`
-- `data/kb/cedar-park-townhomes.md`
-- `data/kb/general-leasing-faq.md`
-- `data/kb/lakeview-flats.md`
-- `src/leasing_voice_assistant/interfaces.py`
-- `src/leasing_voice_assistant/knowledge_base.py`
-- `tests/test_knowledge_base.py`
+- `src/leasing_voice_assistant/property_resolution.py`
+- `tests/test_property_resolution.py`
 
 ## Files Changed In Latest Completed Milestone
 
 - `README.md`
-- `data/kb/cedar-park-townhomes.md`
-- `data/kb/general-leasing-faq.md`
-- `data/kb/lakeview-flats.md`
-- `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md`
+- `docs/decisions/0006-property-resolution-state.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/interfaces.py`
-- `src/leasing_voice_assistant/knowledge_base.py`
-- `tests/test_knowledge_base.py`
+- `src/leasing_voice_assistant/property_resolution.py`
+- `tests/test_property_resolution.py`
 
 ## Exact Next Action
 
-Start M06 only after user instruction: create an ADR for property-resolution state, discuss trade-offs, wait for explicit acceptance, then implement only M06.
+Start M07 only after user instruction: create an ADR for grounded answer orchestration, discuss trade-offs, wait for explicit acceptance, then implement only M07.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0005. M00, M01, M02, M03, M04, and M05 are complete. M06 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0006. M00, M01, M02, M03, M04, M05, and M06 are complete. M07 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -238,3 +234,21 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M05 complete and set M06 as the next milestone.
+
+### 2026-06-16 M06 ADR Review
+
+- Confirmed M05 is the latest completed milestone and M06 is the next incomplete milestone.
+- Confirmed M06 depends on M04, which is complete.
+- Created ADR 0006 for property-resolution state and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M06 Implementation
+
+- User explicitly accepted ADR 0006.
+- Marked ADR 0006 Accepted and implemented M06 only.
+- Added deterministic property-resolution state and resolver service using existing database query tools.
+- Added focused property-resolution tests for exact references, context reuse, unit-hint narrowing, ambiguous references, no-match behavior, and prior-context replacement.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M06 complete and set M07 as the next milestone.

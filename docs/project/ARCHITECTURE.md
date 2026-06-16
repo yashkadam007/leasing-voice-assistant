@@ -51,6 +51,14 @@ Implemented M05 knowledge-base retrieval:
 - Retrieval responses return source IDs, titles, section headings, bounded snippets, scores, and metadata.
 - The knowledge base stays separate from database-owned unit facts and does not perform answer generation or writes.
 
+Implemented M06 property resolution:
+
+- `leasing_voice_assistant.property_resolution` exposes a deterministic `PropertyResolver`.
+- Resolver state records resolved property and optional unit IDs, confidence, candidates, evidence, clarification reason, and write readiness.
+- The resolver uses existing database query tools rather than raw persistence access.
+- Ambiguous property or unit references require clarification and are not write-ready.
+- Prior resolved context can carry across turns and unit hints can narrow that context.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -135,7 +143,7 @@ ADR 0005 selects committed Markdown source files and deterministic lexical retri
 
 ## Property Resolution
 
-Property resolution should combine:
+The implemented M06 resolver combines:
 
 - Explicit mentions from the caller.
 - Database search results.
@@ -143,7 +151,7 @@ Property resolution should combine:
 - Unit details such as bedrooms, view, rent, or availability.
 - Confirmation when confidence is low.
 
-Ambiguous references such as "the lake-facing one" or "that two bedroom" must not trigger writes until resolved.
+It returns serializable state with `resolved`, `probable`, `ambiguous`, or `unresolved` confidence. Exact property references can resolve property context. Prior resolved context can support pronoun-style references. Unit hints such as "lake-facing one" can narrow a resolved property to one unit when the evidence is unique. Ambiguous references, including multiple possible properties or multiple matching units, require clarification and are not write-ready.
 
 ## Prospect Identity Capture
 

@@ -10,7 +10,7 @@
 | M03 | Property/prospect persistence and seed data | completed | [0003](../decisions/0003-property-prospect-persistence-and-seed-data.md) |
 | M04 | Database query tools | completed | [0004](../decisions/0004-database-query-tools.md) |
 | M05 | Knowledge-base ingestion and retrieval | completed | [0005](../decisions/0005-knowledge-base-ingestion-and-retrieval.md) |
-| M06 | Property-resolution state | not_started | Required |
+| M06 | Property-resolution state | completed | [0006](../decisions/0006-property-resolution-state.md) |
 | M07 | Grounded answer orchestration | not_started | Required |
 | M08 | Safe prospect capture | not_started | Required |
 | M09 | Text-based conversation harness | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M06 Property-resolution state, pending ADR.
+**Next milestone:** M07 Grounded answer orchestration, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -173,11 +173,11 @@
 
 ### M06 Property-Resolution State
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Track and update the likely property/unit across conversation turns.
 - **Why now:** Property resolution must be reliable before writes and grounded answer orchestration.
 - **Dependencies:** M04.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0006 Property Resolution State](../decisions/0006-property-resolution-state.md), Accepted.
 - **Decisions to resolve:** Confidence representation, ambiguity thresholds, clarification wording policy.
 - **Scope:** Resolution state machine or service and tests.
 - **Non-scope:** Prospect writes, full agent loop, voice.
@@ -185,9 +185,9 @@
 - **Implementation tasks:** Resolve from explicit mentions and hints, preserve context, require clarification when ambiguous.
 - **Automated tests:** Exact reference, pronoun/context reference, "lake-facing one", ambiguous two-property case, no match.
 - **Manual verification:** Review scenario traces.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** Ambiguous properties do not become write-ready; resolved context survives turns.
-- **Expected demo evidence:** Test scenarios.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** Ambiguous properties do not become write-ready; resolved context survives turns. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Test scenarios: 40 tests passed, including 7 property-resolution tests.
 - **Rollback/recovery:** Tune thresholds without changing storage.
 - **Documentation updates:** Architecture, requirements traceability, status.
 - **Likely risks:** Ambiguous property references and false confidence.
