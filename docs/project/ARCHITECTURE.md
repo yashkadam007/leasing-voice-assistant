@@ -36,6 +36,13 @@ Implemented M03 persistence:
 - `leasing_voice_assistant.persistence` applies migrations, loads seed data idempotently, and provides concrete SQLite property and prospect repositories.
 - Prospect upsert matches normalized phone numbers, and interest logging is idempotent for the same prospect, source, and resolved target.
 
+Implemented M04 database query tools:
+
+- `leasing_voice_assistant.database_tools` exposes a read-only tool layer over `PropertyRepository`.
+- Tool request and response DTOs cover property search, unit listing, and unit fact lookup.
+- Responses include structured `EvidenceItem` records, result counts, enforced limits, and conservative match metadata.
+- The tool layer does not expose raw SQL and does not perform prospect writes.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -102,10 +109,10 @@ The agent should:
 
 Database tools should expose narrow operations, not raw SQL to the model:
 
-- Search properties by name, address, city, or descriptive hint.
-- List matching units and availability.
-- Read unit facts such as rent, bedrooms, view, parking, pet policy, and status.
-- Return structured results with source labels for grounding.
+- `search_properties` searches properties by repository-backed text query and returns candidates with `exact`, `high`, or `possible` confidence.
+- `list_units` lists units for a known property ID with availability and unit facts.
+- `get_unit_facts` reads one unit by ID and returns rent, bedrooms, bathrooms, square footage, availability, view, parking, pet policy, amenities, and status.
+- All tool responses include structured source labels such as `database.properties` and `database.units` for grounding.
 
 ## Knowledge-Base Retrieval
 
@@ -227,7 +234,7 @@ Current local development commands:
 6. Run the scaffold app with `uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --reload`.
 7. Initialize the local SQLite database with `PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
 
-Later milestones will add model-safe database tools, KB setup, text conversation harness, browser voice or telephony adapter, and demo recording commands.
+Later milestones will add KB setup, text conversation harness, browser voice or telephony adapter, and demo recording commands.
 
 ## Deployment And Demo Flow
 

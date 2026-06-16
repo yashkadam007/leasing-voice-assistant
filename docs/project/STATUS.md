@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M03 property/prospect persistence and seed data is complete.
+- **Project state:** M04 database query tools is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M03 is complete.
-- **Latest completed milestone:** M03 Property/prospect persistence and seed data.
-- **Next milestone:** M04 Database query tools, pending ADR.
-- **Latest ADR:** `docs/decisions/0003-property-prospect-persistence-and-seed-data.md` (Accepted).
+- **Active milestone:** None; M04 is complete.
+- **Latest completed milestone:** M04 Database query tools.
+- **Next milestone:** M05 Knowledge-base ingestion and retrieval, pending ADR.
+- **Latest ADR:** `docs/decisions/0004-database-query-tools.md` (Accepted).
 
 ## Completed Work
 
@@ -31,19 +31,22 @@
 - Extended `UnitRecord` with `sqft` and `available_from` for assignment-relevant unit facts.
 - Added persistence tests for schema setup, idempotent seed loading, property/unit reads, phone-based prospect upsert, interest idempotency, and phone normalization.
 - Documented local database initialization and ignored generated runtime database files.
+- ADR 0004 accepted for framework-neutral, model-safe, read-only database query tools.
+- Added `leasing_voice_assistant.database_tools` with typed request/response DTOs, structured evidence items, result limits, property match status, and conservative confidence metadata.
+- Added database-tool tests for exact property search, ambiguous search, no-match search, empty-query handling, unit list limits, unit fact evidence, and missing unit behavior.
 
 ## Work Currently In Progress
 
-- None. Stop before M04 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M05 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 20 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 27 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 10 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 10 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 12 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 12 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
@@ -53,7 +56,8 @@
 - Settings tests confirm secret-like values are redacted from `repr(settings)`.
 - Fake provider tests confirm deterministic model, STT, TTS, voice session, repository, prospect, and KB retriever behavior.
 - Persistence tests confirm migrations create the schema, seed loading is idempotent, seeded property/unit facts are readable, prospect upsert matches normalized phone numbers, and repeated interest writes do not create duplicates.
-- No real provider calls, credentials, model-safe database tools, knowledge-base retrieval implementation, agent prompts, prospect capture gate, or voice pipeline were added.
+- Database-tool tests confirm exact, ambiguous, and no-match property search behavior, empty queries do not return every property, unit list limits are enforced, and unit fact lookups return structured grounding evidence without fallback facts for missing units.
+- No real provider calls, credentials, knowledge-base retrieval implementation, agent prompts, prospect capture gate, or voice pipeline were added.
 
 ## Known Failures
 
@@ -63,11 +67,10 @@
 
 ## Blockers
 
-- None for M03.
+- None for M04.
 
 ## Unresolved Decisions
 
-- M04 database tool shapes, result limits, and confidence/source metadata.
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
 - Knowledge-base retrieval approach.
@@ -93,31 +96,35 @@
 
 ## Files Changed In Current Milestone
 
-- `.gitignore`
 - `README.md`
-- `data/migrations/0001_property_prospect_schema.sql`
-- `data/seeds/properties.json`
-- `docs/decisions/0003-property-prospect-persistence-and-seed-data.md`
+- `docs/decisions/0004-database-query-tools.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/interfaces.py`
-- `src/leasing_voice_assistant/persistence.py`
-- `tests/test_persistence.py`
+- `src/leasing_voice_assistant/database_tools.py`
+- `tests/test_database_tools.py`
 
 ## Files Changed In Latest Completed Milestone
 
-- Same as current milestone; M03 is the latest completed milestone.
+- `README.md`
+- `docs/decisions/0004-database-query-tools.md`
+- `docs/decisions/README.md`
+- `docs/project/ARCHITECTURE.md`
+- `docs/project/IMPLEMENTATION_PLAN.md`
+- `docs/project/REQUIREMENTS.md`
+- `docs/project/STATUS.md`
+- `src/leasing_voice_assistant/database_tools.py`
+- `tests/test_database_tools.py`
 
 ## Exact Next Action
 
-Start M04 only after user instruction: create an ADR for database query tools, discuss trade-offs, wait for explicit acceptance, then implement only M04.
+Start M05 only after user instruction: create an ADR for knowledge-base ingestion and retrieval, discuss trade-offs, wait for explicit acceptance, then implement only M05.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, accepted ADR 0001, accepted ADR 0002, and accepted ADR 0003. M00, M01, M02, and M03 are complete. M04 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0004. M00, M01, M02, M03, and M04 are complete. M05 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -180,3 +187,21 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, type check, and local database initialization.
 - Marked M03 complete and set M04 as the next milestone.
+
+### 2026-06-16 M04 ADR Review
+
+- Confirmed M03 is the latest completed milestone and M04 is the next incomplete milestone.
+- Confirmed M04 depends on M03, which is complete.
+- Created ADR 0004 from the established Tyree/Akerman template and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M04 Implementation
+
+- User explicitly accepted ADR 0004.
+- Marked ADR 0004 Accepted and implemented M04 only.
+- Added read-only database query tools with typed DTOs, evidence items, result limits, exact/ambiguous/no-match property search status, and unit fact lookup.
+- Added focused database-tool tests for property search, unit listing, unit fact evidence, and no fallback facts for missing units.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M04 complete and set M05 as the next milestone.

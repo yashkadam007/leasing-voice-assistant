@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M03 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, and synthetic seed property data. Database tools, knowledge-base retrieval, agent behavior, prospect capture gating, and voice integration are planned later milestones.
+M04 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, and read-only database query tools. Knowledge-base retrieval, agent behavior, prospect capture gating, and voice integration are planned later milestones.
 
 ## Requirements
 

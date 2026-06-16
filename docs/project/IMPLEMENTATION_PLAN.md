@@ -8,7 +8,7 @@
 | M01 | Repository and quality-tooling foundation | completed | [0001](../decisions/0001-repository-and-quality-tooling-foundation.md) |
 | M02 | Configuration and provider interfaces | completed | [0002](../decisions/0002-configuration-and-provider-interfaces.md) |
 | M03 | Property/prospect persistence and seed data | completed | [0003](../decisions/0003-property-prospect-persistence-and-seed-data.md) |
-| M04 | Database query tools | not_started | Required |
+| M04 | Database query tools | completed | [0004](../decisions/0004-database-query-tools.md) |
 | M05 | Knowledge-base ingestion and retrieval | not_started | Required |
 | M06 | Property-resolution state | not_started | Required |
 | M07 | Grounded answer orchestration | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M04 Database query tools, pending ADR.
+**Next milestone:** M05 Knowledge-base ingestion and retrieval, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -131,11 +131,11 @@
 
 ### M04 Database Query Tools
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Add model-safe database read tools for property search and unit facts.
 - **Why now:** The agent needs grounded DB access before answering property questions.
 - **Dependencies:** M03.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0004 Database Query Tools](../decisions/0004-database-query-tools.md), Accepted.
 - **Decisions to resolve:** Tool input/output shapes, result limits, confidence metadata.
 - **Scope:** Read-only tools for property/unit search and fact lookup.
 - **Non-scope:** KB retrieval, writes, voice.
@@ -143,9 +143,9 @@
 - **Implementation tasks:** Implement property search, unit list, unit detail reads, structured evidence returns.
 - **Automated tests:** Search, exact match, ambiguous match, no match, availability/fact reads.
 - **Manual verification:** Run tool calls through tests or a small debug command if established.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** Tools return structured evidence and never expose arbitrary SQL.
-- **Expected demo evidence:** Test cases showing grounded fact retrieval.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** Tools return structured evidence and never expose arbitrary SQL. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Test cases showing grounded fact retrieval: 27 tests passed, including 7 database-tool tests.
 - **Rollback/recovery:** Preserve repository layer; adjust tool DTOs before agent integration if needed.
 - **Documentation updates:** Architecture, requirements traceability, status.
 - **Likely risks:** Ambiguous property names, stale availability, accidental hallucination from unstructured results.

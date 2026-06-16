@@ -125,7 +125,7 @@ These are optional and must not displace the MVP:
 | FR-02 | M03, M04, M07, M12 | Unit tests for DB tools; integration conversation scenarios. |
 | FR-03 | M05, M07, M12 | Retrieval tests; grounded answer scenarios. |
 | FR-04 | M06, M07, M12 | Property-resolution unit tests; ambiguous-reference scenarios. |
-| FR-05 | M05, M07, M13 | Unknown-question tests; eval scenarios for hallucination prevention. |
+| FR-05 | M04, M05, M07, M13 | Explicit DB no-match tests; unknown-question tests; eval scenarios for hallucination prevention. |
 | FR-06 | M08, M09, M11, M12 | Prospect capture tests; manual voice scenario. |
 | FR-07 | M03, M08, M12 | Upsert tests using duplicate phone numbers. |
 | FR-08 | M03, M08, M12 | Interest logging and idempotency tests. |
@@ -151,4 +151,5 @@ These are optional and must not displace the MVP:
 - M01 provides the first concrete evidence for NFR-03, NFR-04, NFR-06, NFR-07, DEL-02, and DEL-03: scaffold code, README commands, smoke tests, linting, formatting, type checking, ignored local env files, and documentation updates.
 - M02 provides concrete evidence for NFR-03, NFR-06, NFR-07, NFR-08, and DEL-05: Pydantic Settings with optional provider credentials, protocol-based provider boundaries, deterministic fakes, credential-redaction tests, and README credential documentation.
 - M03 provides concrete evidence for FR-02, FR-07, FR-08, NFR-03, NFR-05, NFR-06, and NFR-07: SQLite migrations, synthetic property/unit seed data, concrete property and prospect repositories, phone-based prospect upsert tests, idempotent interest logging tests, and ignored generated database files.
-- M03 does not yet satisfy voice, model-safe DB tools, knowledge-base retrieval, property resolution, confirmation-gated prospect capture, or demo-recording requirements; those remain assigned to later milestones.
+- M04 provides concrete evidence for FR-02, FR-05, FR-10, NFR-03, and NFR-06: read-only database query tools, structured evidence records, result limits, exact/ambiguous/no-match property search tests, unit listing tests, and unit fact lookup tests.
+- M04 does not yet satisfy voice, knowledge-base retrieval, property resolution, confirmation-gated prospect capture, full answer orchestration, or demo-recording requirements; those remain assigned to later milestones.
