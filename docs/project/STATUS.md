@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M08 safe prospect capture is complete.
-- **Date:** 2026-06-16
+- **Project state:** M09 text-based conversation harness is complete.
+- **Date:** 2026-06-17
 - **Current branch:** `main`.
-- **Active milestone:** None; M08 is complete.
-- **Latest completed milestone:** M08 Safe prospect capture.
-- **Next milestone:** M09 Text-based conversation harness, pending ADR.
-- **Latest ADR:** `docs/decisions/0008-safe-prospect-capture.md` (Accepted).
+- **Active milestone:** None; M09 is complete.
+- **Latest completed milestone:** M09 Text-based conversation harness.
+- **Next milestone:** M10 Voice pipeline, pending ADR.
+- **Latest ADR:** `docs/decisions/0009-text-based-conversation-harness.md` (Accepted).
 
 ## Completed Work
 
@@ -49,20 +49,25 @@
 - Added `leasing_voice_assistant.prospect_capture` with capture request/result DTOs, capture state, pending confirmation state, explicit write-gate outcomes, conservative identity extraction, interest-intent detection, low-confidence handling, and repository-backed writes.
 - Updated `FakeProspectRepository` to normalize phone keys and keep interest writes idempotent for the same prospect, source, and target.
 - Added prospect-capture tests for missing name, missing phone, ambiguous property, unclear intent, garbled/low-confidence transcript, explicit confirmation, unit-level interest writes, caller-phone upsert behavior, duplicate interest idempotency, and pending-confirmation invalidation.
+- ADR 0009 accepted for a reusable in-memory text conversation session service plus thin CLI harness.
+- Added `leasing_voice_assistant.conversation_session` with session state, transcript entries, turn requests/results, safe debug traces, answer-orchestration wiring, and prospect-capture wiring.
+- Added `leasing_voice_assistant.text_harness` with a local CLI over the same session service, SQLite repositories, database tools, Markdown KB retriever, and prospect write gate.
+- Added conversation-session tests for multi-turn answer context, complete prospect capture, confirmation-required writes, ambiguous-property write blocking, and real harness construction.
 
 ## Work Currently In Progress
 
-- None. Stop before M09 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M10 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 56 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 61 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 20 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 20 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 23 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 23 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
+| Scripted text harness: `printf 'How much is the lake-facing unit at Lakeview Flats?\nMy name is Avery Lee, my phone is 555-123-4567, and I am interested in this.\nquit\n' \| PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -m leasing_voice_assistant.text_harness --debug` | Passed; returned a grounded unit rent answer, safe debug traces, and a unit-level prospect-interest write acknowledgement. |
 
 ## Validation Results
 
@@ -76,7 +81,9 @@
 - Property-resolution tests confirm exact references resolve property context, prior context supports follow-up references, unit hints narrow to a unique unit when evidence is sufficient, ambiguous property and unit references require clarification, no-match turns remain unresolved, and new explicit property references replace prior context.
 - Answer-orchestration tests confirm rent answers use DB evidence, prior property context can answer a unit-specific follow-up, application-process answers come from KB snippets, unknown questions fall back without invention, missing property context asks for clarification, ambiguous property references ask for clarification, and structured pet-policy facts prefer DB evidence over KB guidance.
 - Prospect-capture tests confirm missing identity blocks writes, ambiguous property context blocks writes, unclear intent requires confirmation, garbled or low-confidence transcript markers require confirmation, explicit confirmation writes pending interest, clear intent writes unit-level interest, caller-phone metadata supports existing-prospect upsert, duplicate interest writes remain idempotent, and changed target details invalidate pending confirmation.
-- No real provider calls, credentials, embeddings, vector database, agent prompts, voice pipeline, persistent session storage, CRM workflow, schema migration, or real personal data were added.
+- Conversation-session tests confirm text session state preserves multi-turn property context, transcript entries are recorded, debug traces expose answer and capture decisions safely, complete text prospect capture writes unit-level interest, confirmation-required text flows can be completed, ambiguous property writes remain blocked, and the CLI builder uses real local repositories.
+- Scripted CLI verification confirms a local text conversation can answer a grounded Lakeview Flats rent question and record Avery Lee's synthetic interest in unit 2B.
+- No real provider calls, credentials, embeddings, vector database, agent prompts, voice pipeline, browser UI, telephony integration, persistent session storage, CRM workflow, schema migration, or real personal data were added.
 
 ## Known Failures
 
@@ -86,7 +93,7 @@
 
 ## Blockers
 
-- None for M08.
+- None for M09.
 
 ## Unresolved Decisions
 
@@ -104,6 +111,7 @@
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
 - M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
 - M08 deterministic identity extraction is intentionally conservative; later model or voice layers may collect details more naturally while preserving the write-gate contract.
+- M09 uses in-memory session state only; durable session storage remains out of scope unless later voice or observability milestones require it.
 
 ## External Setup Still Required
 
@@ -116,36 +124,36 @@
 ## Files Changed In Current Milestone
 
 - `README.md`
-- `docs/decisions/0008-safe-prospect-capture.md`
+- `docs/decisions/0009-text-based-conversation-harness.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/fakes.py`
-- `src/leasing_voice_assistant/prospect_capture.py`
-- `tests/test_prospect_capture.py`
+- `src/leasing_voice_assistant/conversation_session.py`
+- `src/leasing_voice_assistant/text_harness.py`
+- `tests/test_conversation_session.py`
 
 ## Files Changed In Latest Completed Milestone
 
 - `README.md`
-- `docs/decisions/0008-safe-prospect-capture.md`
+- `docs/decisions/0009-text-based-conversation-harness.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/fakes.py`
-- `src/leasing_voice_assistant/prospect_capture.py`
-- `tests/test_prospect_capture.py`
+- `src/leasing_voice_assistant/conversation_session.py`
+- `src/leasing_voice_assistant/text_harness.py`
+- `tests/test_conversation_session.py`
 
 ## Exact Next Action
 
-Start M09 only after user instruction: create an ADR for the text-based conversation harness, discuss trade-offs, wait for explicit acceptance, then implement only M09.
+Start M10 only after user instruction: create an ADR for the voice pipeline, discuss trade-offs, wait for explicit acceptance, then implement only M10.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0008. M00, M01, M02, M03, M04, M05, M06, M07, and M08 are complete. M09 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0009. M00, M01, M02, M03, M04, M05, M06, M07, M08, and M09 are complete. M10 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -299,3 +307,22 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M08 complete and set M09 as the next milestone.
+
+### 2026-06-16 M09 ADR Review
+
+- Confirmed M08 is the latest completed milestone and M09 is the next incomplete milestone.
+- Confirmed M09 depends on M07 and M08, which are complete.
+- Created ADR 0009 for the text-based conversation harness and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-17 M09 Implementation
+
+- User explicitly accepted ADR 0009.
+- Marked ADR 0009 Accepted and implemented M09 only.
+- Added reusable in-memory text conversation session state, transcript entries, turn results, and safe debug traces.
+- Added local CLI text harness over the same session service, SQLite repositories, database tools, Markdown KB retriever, and prospect-capture write gate.
+- Added focused conversation-session tests for multi-turn context, complete capture, confirmation, ambiguous-property blocking, and real harness construction.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, type check, and a scripted CLI text conversation.
+- Marked M09 complete and set M10 as the next milestone.

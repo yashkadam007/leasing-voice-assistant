@@ -53,3 +53,4 @@ Each ADR should link to:
 | [0006](0006-property-resolution-state.md) | Property Resolution State | Accepted | M06 | Defines deterministic conversational property/unit resolution state, confidence classification, evidence, and clarification-required outcomes. |
 | [0007](0007-grounded-answer-orchestration.md) | Grounded Answer Orchestration | Accepted | M07 | Defines deterministic text-turn orchestration with explicit routing, evidence, grounded answer composition, and conservative fallbacks. |
 | [0008](0008-safe-prospect-capture.md) | Safe Prospect Capture | Accepted | M08 | Defines deterministic capture state, write-gate outcomes, confirmation handling, and safe prospect-interest writes. |
+| [0009](0009-text-based-conversation-harness.md) | Text Based Conversation Harness | Accepted | M09 | Defines a reusable in-memory conversation session service plus a thin CLI harness for complete text conversation testing. |

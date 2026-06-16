@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M08 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, and safe prospect-capture write gating. Text conversation harness and voice integration are planned later milestones.
+M09 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, and a local text conversation harness. Voice integration is planned for later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M08 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M08 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, or prospect capture tests. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M09 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, or the local text harness. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Local Database
 
@@ -44,6 +44,16 @@ Committed knowledge-base source documents live in `data/kb/`. The M05 retriever 
 ## Prospect Capture
 
 `leasing_voice_assistant.prospect_capture.ProspectCaptureService` gates prospect writes. It requires write-ready property or unit resolution, plausible caller name and phone, and clear interest intent or explicit confirmation before calling the prospect repository. Blocked and confirmation-required outcomes are returned as structured results for future conversation harnesses.
+
+## Text Conversation Harness
+
+Run a local text conversation against the same session service later voice integrations will use:
+
+```bash
+PYTHONPATH=src uv run python -m leasing_voice_assistant.text_harness --debug
+```
+
+The harness initializes the local SQLite database, reads the Markdown knowledge base, preserves session state across turns, and can print safe debug traces for answer routing, evidence counts, property resolution, and prospect write-gate outcomes.
 
 ## Run
 

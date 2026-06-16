@@ -13,7 +13,7 @@
 | M06 | Property-resolution state | completed | [0006](../decisions/0006-property-resolution-state.md) |
 | M07 | Grounded answer orchestration | completed | [0007](../decisions/0007-grounded-answer-orchestration.md) |
 | M08 | Safe prospect capture | completed | [0008](../decisions/0008-safe-prospect-capture.md) |
-| M09 | Text-based conversation harness | not_started | Required |
+| M09 | Text-based conversation harness | completed | [0009](../decisions/0009-text-based-conversation-harness.md) |
 | M10 | Voice pipeline | not_started | Required |
 | M11 | Real call or browser voice integration | not_started | Required |
 | M12 | Integration and end-to-end tests | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M09 Text-based conversation harness, pending ADR.
+**Next milestone:** M10 Voice pipeline, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -236,11 +236,11 @@
 
 ### M09 Text-Based Conversation Harness
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Provide a CLI or local API text harness for complete conversation testing without voice.
 - **Why now:** Text harness makes agent behavior debuggable before audio complexity.
 - **Dependencies:** M07, M08.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0009 Text Based Conversation Harness](../decisions/0009-text-based-conversation-harness.md), Accepted.
 - **Decisions to resolve:** CLI vs HTTP harness, transcript output format, debug trace visibility.
 - **Scope:** Developer-facing text loop with session state and optional debug traces.
 - **Non-scope:** Voice, telephony, polished UI.
@@ -248,9 +248,9 @@
 - **Implementation tasks:** Start session, accept text turns, show assistant replies, expose tool/write traces safely.
 - **Automated tests:** Scripted conversations for answer and capture flows.
 - **Manual verification:** Run sample conversation locally.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** A full prospect-capture conversation can be completed in text with deterministic test coverage.
-- **Expected demo evidence:** Saved transcript or command output.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`; scripted CLI run with `python -m leasing_voice_assistant.text_harness --debug`.
+- **Acceptance criteria:** A full prospect-capture conversation can be completed in text with deterministic test coverage. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Scripted CLI output showing a grounded rent answer and unit-level prospect-interest write.
 - **Rollback/recovery:** Harness can remain dev-only.
 - **Documentation updates:** README, status, implementation plan.
 - **Likely risks:** Harness diverging from voice state flow.

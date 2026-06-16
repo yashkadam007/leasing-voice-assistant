@@ -79,6 +79,15 @@ Implemented M08 safe prospect capture:
 - Prospect writes go through the existing `ProspectRepository` interface: upsert prospect by phone, then record idempotent property- or unit-level interest.
 - M08 does not introduce voice/audio handling, real provider calls, persistent session storage, schema changes, or CRM workflow.
 
+Implemented M09 text conversation harness:
+
+- `leasing_voice_assistant.conversation_session` exposes a reusable in-memory session service.
+- Session state preserves turn number, transcript entries, property-resolution state, and prospect-capture state across text turns.
+- Each session turn calls the M07 answer orchestrator and, when the user provides identity, interest, or confirmation text, the M08 prospect-capture service.
+- Turn results include caller-facing assistant text, updated serializable state, the underlying answer result, optional capture result, and optional safe debug traces.
+- `leasing_voice_assistant.text_harness` provides a thin CLI wrapper over the same session service using the local SQLite database and Markdown KB.
+- M09 does not introduce voice/audio handling, browser UI, Twilio integration, real model calls, persistent multi-session storage, or external agent frameworks.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -283,7 +292,7 @@ Current local development commands:
 7. Initialize the local SQLite database with `PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
 8. Edit or review Markdown KB content under `data/kb/`.
 
-Later milestones will add property resolution, text conversation harness, browser voice or telephony adapter, and demo recording commands.
+Later milestones will add the voice pipeline, browser voice or telephony adapter, and demo recording commands.
 
 ## Deployment And Demo Flow
 
