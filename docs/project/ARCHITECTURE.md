@@ -28,6 +28,14 @@ Implemented M02 boundaries:
 - Provider and storage contracts live in `leasing_voice_assistant.interfaces`.
 - Deterministic local fakes live in `leasing_voice_assistant.fakes` for tests and future offline integration work.
 
+Implemented M03 persistence:
+
+- SQLite schema migrations live in `data/migrations/`.
+- Synthetic property and unit seed data lives in `data/seeds/properties.json`.
+- Runtime SQLite files are generated under `data/runtime/` and are not committed.
+- `leasing_voice_assistant.persistence` applies migrations, loads seed data idempotently, and provides concrete SQLite property and prospect repositories.
+- Prospect upsert matches normalized phone numbers, and interest logging is idempotent for the same prospect, source, and resolved target.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -165,7 +173,7 @@ The MVP should:
 - Log interest in the resolved unit or property.
 - Make interest creation idempotent for repeated confirmations in the same conversation.
 
-Exact uniqueness rules require an ADR during the safe prospect capture milestone.
+ADR 0003 defines the storage-level idempotency rule: interest rows are unique for the same prospect, source, and target unit or property. Later safe-capture logic can still decide when a write is allowed.
 
 ## Observability And Structured Logging
 
@@ -209,7 +217,7 @@ An optional LLM-as-judge can score groundedness, helpfulness, and safety, but de
 
 ## Local Development Flow
 
-Current M01 foundation commands:
+Current local development commands:
 
 1. Install dependencies with `uv sync --all-groups`.
 2. Run automated tests with `uv run pytest`.
@@ -217,8 +225,9 @@ Current M01 foundation commands:
 4. Run formatting checks with `uv run ruff format --check .`.
 5. Run type checks with `uv run mypy`.
 6. Run the scaffold app with `uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --reload`.
+7. Initialize the local SQLite database with `PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
 
-Later milestones will add database/KB setup, text conversation harness, browser voice or telephony adapter, and demo recording commands.
+Later milestones will add model-safe database tools, KB setup, text conversation harness, browser voice or telephony adapter, and demo recording commands.
 
 ## Deployment And Demo Flow
 

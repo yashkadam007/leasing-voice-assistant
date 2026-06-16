@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M02 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, and deterministic fakes. Database, knowledge-base retrieval, agent behavior, prospect capture, and voice integration are planned later milestones.
+M03 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, and synthetic seed property data. Database tools, knowledge-base retrieval, agent behavior, prospect capture gating, and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,17 @@ M02 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M02 does not require provider credentials for setup, tests, linting, formatting, or type checks. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M03 does not require provider credentials for setup, tests, linting, formatting, type checks, or local database initialization. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+
+## Local Database
+
+Initialize or refresh the local SQLite database with migrations and synthetic seed data:
+
+```bash
+PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"
+```
+
+The generated database lives under `data/runtime/`, which is ignored by Git. Committed seed data lives in `data/seeds/properties.json`.
 
 ## Run
 

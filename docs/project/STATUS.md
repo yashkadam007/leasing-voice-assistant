@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M02 configuration and provider interfaces is complete.
+- **Project state:** M03 property/prospect persistence and seed data is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M02 is complete.
-- **Latest completed milestone:** M02 Configuration and provider interfaces.
-- **Next milestone:** M03 Property/prospect persistence and seed data, pending ADR.
-- **Latest ADR:** `docs/decisions/0002-configuration-and-provider-interfaces.md` (Accepted).
+- **Active milestone:** None; M03 is complete.
+- **Latest completed milestone:** M03 Property/prospect persistence and seed data.
+- **Next milestone:** M04 Database query tools, pending ADR.
+- **Latest ADR:** `docs/decisions/0003-property-prospect-persistence-and-seed-data.md` (Accepted).
 
 ## Completed Work
 
@@ -24,33 +24,27 @@
 - Added deterministic fake providers, repositories, and retriever in `leasing_voice_assistant.fakes`.
 - Added tests for settings loading, credential redaction, validation failure, and fake behavior.
 - Documented supported environment variables in `README.md` and `.env.example`.
-- Confirmed no database, agent orchestration, real provider adapter, knowledge-base implementation, prospect-capture behavior, or voice transport was implemented in M02.
+- ADR 0003 accepted for SQLite persistence, SQL migrations, JSON seed data, and storage-level interest idempotency.
+- Added SQLite migration for `properties`, `units`, `prospects`, and `prospect_interests`.
+- Added synthetic seed data for Lakeview Flats and Cedar Park Townhomes.
+- Added `leasing_voice_assistant.persistence` with migration setup, seed loading, concrete property and prospect repositories, and phone normalization.
+- Extended `UnitRecord` with `sqft` and `available_from` for assignment-relevant unit facts.
+- Added persistence tests for schema setup, idempotent seed loading, property/unit reads, phone-based prospect upsert, interest idempotency, and phone normalization.
+- Documented local database initialization and ignored generated runtime database files.
 
 ## Work Currently In Progress
 
-- None. Stop before M03 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M04 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `sed -n '1,260p' brief.md` | Passed; brief read successfully. |
-| `sed -n '1,220p' AGENTS.md` | Passed; project instructions read successfully. |
-| `sed -n '1,260p' docs/project/REQUIREMENTS.md` | Passed; requirements read successfully. |
-| `sed -n '1,280p' docs/project/ARCHITECTURE.md` | Passed; architecture read successfully. |
-| `sed -n '1,260p' docs/project/IMPLEMENTATION_PLAN.md` | Passed; implementation plan read successfully. |
-| `sed -n '1,240p' docs/project/STATUS.md` | Passed; previous status read successfully. |
-| `sed -n '1,260p' docs/decisions/README.md` | Passed; ADR index read successfully. |
-| `sed -n '1,240p' docs/decisions/0002-configuration-and-provider-interfaces.md` | Passed; ADR 0002 read successfully. |
-| `git status --short` | Passed; showed M02 working-tree changes. |
-| `git branch --show-current` | Passed; current branch is `main`. |
-| `UV_CACHE_DIR=.uv-cache uv sync --all-groups` | Passed after approved network access; installed `pydantic-settings==2.14.1`. |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 11 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed after import sorting fix; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 8 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 8 source files. |
-| `git diff --stat` | Passed; reviewed tracked dependency changes. |
-| `rg -n "secret-\|API_KEY\|AUTH_TOKEN\|account\|token\|password\|BEGIN\|PRIVATE" ...` | Passed; found only config field names, docs, and test placeholder values. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 20 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 10 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 10 source files. |
+| `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
 
@@ -58,20 +52,22 @@
 - Settings tests confirm local validation works without provider credentials.
 - Settings tests confirm secret-like values are redacted from `repr(settings)`.
 - Fake provider tests confirm deterministic model, STT, TTS, voice session, repository, prospect, and KB retriever behavior.
-- No real provider calls, credentials, database schema, knowledge-base retrieval implementation, agent prompts, or voice pipeline were added.
+- Persistence tests confirm migrations create the schema, seed loading is idempotent, seeded property/unit facts are readable, prospect upsert matches normalized phone numbers, and repeated interest writes do not create duplicates.
+- No real provider calls, credentials, model-safe database tools, knowledge-base retrieval implementation, agent prompts, prospect capture gate, or voice pipeline were added.
 
 ## Known Failures
 
 - `uv` defaults to `/Users/yash/.cache/uv`, which is outside the sandbox. Use `UV_CACHE_DIR=.uv-cache` in this environment.
+- Direct Python snippets for this `src/` layout need `PYTHONPATH=src` unless the project is installed as an editable package.
 - `pytest` reports one third-party deprecation warning from FastAPI/Starlette `TestClient` under the resolved dependency set. It does not fail validation.
 
 ## Blockers
 
-- None for M02.
+- None for M03.
 
 ## Unresolved Decisions
 
-- M03 database/storage choice, schema, seed data format, and persistence setup.
+- M04 database tool shapes, result limits, and confidence/source metadata.
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
 - Knowledge-base retrieval approach.
@@ -83,7 +79,7 @@
 
 - One or two properties are sufficient for MVP.
 - Browser-based voice is acceptable if telephony credentials or trial setup block Twilio.
-- Seed data may need to be created because only `brief.md` is externally provided.
+- M03 created synthetic seed data because no separate sample listing files were present in the repository.
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
 - M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
 
@@ -97,33 +93,31 @@
 
 ## Files Changed In Current Milestone
 
-- `.env.example`
+- `.gitignore`
 - `README.md`
-- `docs/decisions/0002-configuration-and-provider-interfaces.md`
+- `data/migrations/0001_property_prospect_schema.sql`
+- `data/seeds/properties.json`
+- `docs/decisions/0003-property-prospect-persistence-and-seed-data.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `pyproject.toml`
-- `src/leasing_voice_assistant/config.py`
-- `src/leasing_voice_assistant/fakes.py`
 - `src/leasing_voice_assistant/interfaces.py`
-- `tests/test_config.py`
-- `tests/test_fakes.py`
-- `uv.lock`
+- `src/leasing_voice_assistant/persistence.py`
+- `tests/test_persistence.py`
 
 ## Files Changed In Latest Completed Milestone
 
-- Same as current milestone; M02 is the latest completed milestone.
+- Same as current milestone; M03 is the latest completed milestone.
 
 ## Exact Next Action
 
-Start M03 only after user instruction: create an ADR for property/prospect persistence and seed data, discuss trade-offs, wait for explicit acceptance, then implement only M03.
+Start M04 only after user instruction: create an ADR for database query tools, discuss trade-offs, wait for explicit acceptance, then implement only M04.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, accepted ADR 0001, and accepted ADR 0002. M00, M01, and M02 are complete. M03 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, accepted ADR 0001, accepted ADR 0002, and accepted ADR 0003. M00, M01, M02, and M03 are complete. M04 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -169,3 +163,20 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran setup, tests, lint, format check, type check, and a secret-oriented diff scan.
 - Marked M02 complete and set M03 as the next milestone.
+
+### 2026-06-16 M03 ADR Review
+
+- Confirmed M02 is the latest completed milestone and M03 is the next incomplete milestone.
+- Confirmed M03 depends on M01 and M02, which are complete.
+- Created ADR 0003 from the established Tyree/Akerman template and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M03 Implementation
+
+- User explicitly accepted ADR 0003.
+- Marked ADR 0003 Accepted and implemented M03 only.
+- Added SQLite schema migration, synthetic property/unit seed data, local database initialization, concrete repositories, and persistence tests.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, type check, and local database initialization.
+- Marked M03 complete and set M04 as the next milestone.

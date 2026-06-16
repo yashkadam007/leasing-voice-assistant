@@ -53,6 +53,8 @@ class UnitRecord:
     bathrooms: float
     monthly_rent: int
     status: UnitStatus
+    sqft: int | None = None
+    available_from: str | None = None
     view: str | None = None
     parking: str | None = None
     pet_policy: str | None = None

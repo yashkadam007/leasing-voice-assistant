@@ -1,0 +1,62 @@
+{
+  "properties": [
+    {
+      "id": "property-lakeview-flats",
+      "name": "Lakeview Flats",
+      "address": "1200 Lake Shore Drive",
+      "city": "Austin",
+      "units": [
+        {
+          "id": "unit-lakeview-2b",
+          "label": "2B",
+          "bedrooms": 2,
+          "bathrooms": 2.0,
+          "sqft": 1040,
+          "monthly_rent": 2450,
+          "available_from": "2026-07-01",
+          "view": "lake-facing",
+          "parking": "one reserved garage space included",
+          "pet_policy": "cats and dogs allowed with deposit",
+          "amenities": ["balcony", "in-unit laundry", "fitness center"],
+          "status": "available"
+        },
+        {
+          "id": "unit-lakeview-1a",
+          "label": "1A",
+          "bedrooms": 1,
+          "bathrooms": 1.0,
+          "sqft": 720,
+          "monthly_rent": 1825,
+          "available_from": "2026-06-20",
+          "view": "courtyard",
+          "parking": "street parking available",
+          "pet_policy": "cats allowed with deposit",
+          "amenities": ["in-unit laundry", "shared rooftop deck"],
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "id": "property-cedar-park-townhomes",
+      "name": "Cedar Park Townhomes",
+      "address": "88 Cedar Grove Lane",
+      "city": "Cedar Park",
+      "units": [
+        {
+          "id": "unit-cedar-3c",
+          "label": "3C",
+          "bedrooms": 3,
+          "bathrooms": 2.5,
+          "sqft": 1550,
+          "monthly_rent": 3100,
+          "available_from": "2026-08-15",
+          "view": "tree-lined courtyard",
+          "parking": "two-car attached garage",
+          "pet_policy": "dogs and cats allowed with breed restrictions",
+          "amenities": ["private patio", "attached garage", "community pool"],
+          "status": "available"
+        }
+      ]
+    }
+  ]
+}

@@ -47,3 +47,4 @@ Each ADR should link to:
 | --- | --- | --- | --- | --- |
 | [0001](0001-repository-and-quality-tooling-foundation.md) | Repository And Quality Tooling Foundation | Accepted | M01 | Defines application scaffold, dependency manager, source layout, and quality commands. |
 | [0002](0002-configuration-and-provider-interfaces.md) | Configuration And Provider Interfaces | Accepted | M02 | Defines settings approach, provider protocols, and deterministic fakes. |
+| [0003](0003-property-prospect-persistence-and-seed-data.md) | Property Prospect Persistence And Seed Data | Accepted | M03 | Selects local SQLite persistence, migrations, seed data, and interest idempotency approach. |

@@ -7,7 +7,7 @@
 | M00 | Documentation foundation | completed | Not required |
 | M01 | Repository and quality-tooling foundation | completed | [0001](../decisions/0001-repository-and-quality-tooling-foundation.md) |
 | M02 | Configuration and provider interfaces | completed | [0002](../decisions/0002-configuration-and-provider-interfaces.md) |
-| M03 | Property/prospect persistence and seed data | not_started | Required |
+| M03 | Property/prospect persistence and seed data | completed | [0003](../decisions/0003-property-prospect-persistence-and-seed-data.md) |
 | M04 | Database query tools | not_started | Required |
 | M05 | Knowledge-base ingestion and retrieval | not_started | Required |
 | M06 | Property-resolution state | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M03 Property/prospect persistence and seed data, pending ADR.
+**Next milestone:** M04 Database query tools, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -110,11 +110,11 @@
 
 ### M03 Property/Prospect Persistence And Seed Data
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Implement local persistence for properties, units, prospects, and prospect interests with representative seed data.
 - **Why now:** Grounded DB tools need real storage and seed data.
 - **Dependencies:** M01, M02.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0003 Property Prospect Persistence And Seed Data](../decisions/0003-property-prospect-persistence-and-seed-data.md), Accepted.
 - **Decisions to resolve:** SQLite vs other store, migration approach, seed-data format, interest uniqueness.
 - **Scope:** Schema, seed data for one or two properties, repository methods for persistence.
 - **Non-scope:** Agent orchestration, KB retrieval, voice.
@@ -122,9 +122,9 @@
 - **Implementation tasks:** Create tables, load seeds, implement repository basics, ensure idempotent setup.
 - **Automated tests:** Schema setup, seed load, prospect upsert, interest insert/idempotency basics.
 - **Manual verification:** Inspect seeded data and run tests.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** Clean checkout can initialize data; sample properties support assignment questions; no real personal data.
-- **Expected demo evidence:** Test output and optional DB inspection command.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`; `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
+- **Acceptance criteria:** Clean checkout can initialize data; sample properties support assignment questions; no real personal data. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Test output and local DB initialization command.
 - **Rollback/recovery:** Reset local generated DB; keep migrations deterministic.
 - **Documentation updates:** Requirements traceability, architecture, status, README setup.
 - **Likely risks:** Missing provided data, stale availability, duplicate prospects.

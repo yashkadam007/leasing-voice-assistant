@@ -1,9 +1,5 @@
 # 0001 Repository And Quality Tooling Foundation
 
-Decision record template by Jeff Tyree and Art Akerman
-
-This is the architecture decision description template published in "Architecture Decisions: Demystifying Architecture" by Jeff Tyree and Art Akerman, Capital One Financial.
-
 Issue: M01 needs to establish the repository scaffold, dependency manager, README shell, smoke test, linting, formatting, and type-checking commands before any product behavior is implemented. Later milestones depend on stable commands, predictable source layout, and automated quality checks. This issue is being addressed now because M00 is complete, no application code exists, and the current repository has no executable validation beyond documentation checks.
 
 Decision: Use a Python application scaffold with FastAPI as the eventual web/API framework, `uv` for dependency and command execution, `src/leasing_voice_assistant/` as the package layout, `tests/` for automated tests, `pytest` for tests, `ruff` for linting and formatting, and `mypy` for static type checking. M01 will create only a minimal health/smoke entrypoint and quality-tooling configuration. Runtime provider integrations, database schema, voice transport, agent behavior, and business logic remain out of scope for this milestone.
