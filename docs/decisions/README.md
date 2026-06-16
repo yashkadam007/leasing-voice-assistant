@@ -54,3 +54,4 @@ Each ADR should link to:
 | [0007](0007-grounded-answer-orchestration.md) | Grounded Answer Orchestration | Accepted | M07 | Defines deterministic text-turn orchestration with explicit routing, evidence, grounded answer composition, and conservative fallbacks. |
 | [0008](0008-safe-prospect-capture.md) | Safe Prospect Capture | Accepted | M08 | Defines deterministic capture state, write-gate outcomes, confirmation handling, and safe prospect-interest writes. |
 | [0009](0009-text-based-conversation-harness.md) | Text Based Conversation Harness | Accepted | M09 | Defines a reusable in-memory conversation session service plus a thin CLI harness for complete text conversation testing. |
+| [0010](0010-voice-pipeline.md) | Voice Pipeline | Accepted | M10 | Defines a transport-neutral, turn-based Deepgram-capable STT, model-backed reply, and ElevenLabs-capable TTS pipeline with fake provider coverage. |

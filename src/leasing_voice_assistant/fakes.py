@@ -15,32 +15,51 @@ from leasing_voice_assistant.interfaces import (
 
 
 class FakeModelProvider:
-    def __init__(self, response_text: str = "fake model response") -> None:
+    def __init__(
+        self,
+        response_text: str = "fake model response",
+        *,
+        fail: bool = False,
+    ) -> None:
         self.response_text = response_text
+        self.fail = fail
         self.requests: list[Sequence[ModelMessage]] = []
 
     def generate(self, messages: Sequence[ModelMessage]) -> ModelResponse:
         self.requests.append(tuple(messages))
+        if self.fail:
+            raise RuntimeError("fake model failure")
         return ModelResponse(text=self.response_text)
 
 
 class FakeSpeechToTextProvider:
-    def __init__(self, transcript: Transcript | None = None) -> None:
+    def __init__(
+        self,
+        transcript: Transcript | None = None,
+        *,
+        fail: bool = False,
+    ) -> None:
         self.transcript = transcript or Transcript(text="fake transcript", confidence=1.0)
+        self.fail = fail
         self.requests: list[tuple[bytes, str]] = []
 
     def transcribe(self, audio: bytes, *, content_type: str) -> Transcript:
         self.requests.append((audio, content_type))
+        if self.fail:
+            raise RuntimeError("fake STT failure")
         return self.transcript
 
 
 class FakeTextToSpeechProvider:
-    def __init__(self, content_type: str = "audio/wav") -> None:
+    def __init__(self, content_type: str = "audio/wav", *, fail: bool = False) -> None:
         self.content_type = content_type
+        self.fail = fail
         self.requests: list[tuple[str, str | None]] = []
 
     def synthesize(self, text: str, *, voice: str | None = None) -> SynthesizedSpeech:
         self.requests.append((text, voice))
+        if self.fail:
+            raise RuntimeError("fake TTS failure")
         return SynthesizedSpeech(
             audio=f"fake audio: {text}".encode(),
             content_type=self.content_type,

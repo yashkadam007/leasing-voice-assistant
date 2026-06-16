@@ -14,14 +14,14 @@
 | M07 | Grounded answer orchestration | completed | [0007](../decisions/0007-grounded-answer-orchestration.md) |
 | M08 | Safe prospect capture | completed | [0008](../decisions/0008-safe-prospect-capture.md) |
 | M09 | Text-based conversation harness | completed | [0009](../decisions/0009-text-based-conversation-harness.md) |
-| M10 | Voice pipeline | not_started | Required |
+| M10 | Voice pipeline | completed | [0010](../decisions/0010-voice-pipeline.md) |
 | M11 | Real call or browser voice integration | not_started | Required |
 | M12 | Integration and end-to-end tests | not_started | Required |
 | M13 | Evaluation scenarios | not_started | Required |
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M10 Voice pipeline, pending ADR.
+**Next milestone:** M11 Real call or browser voice integration.
 
 ## ADR-First Milestone Workflow
 
@@ -257,45 +257,45 @@
 
 ### M10 Voice Pipeline
 
-- **Status:** not_started
-- **Goal:** Add audio pipeline using STT and TTS providers behind interfaces.
+- **Status:** completed
+- **Goal:** Add a model-backed audio pipeline using STT, LLM, and TTS providers behind interfaces.
 - **Why now:** Voice functionality should build on a tested text agent.
 - **Dependencies:** M02, M09.
-- **ADR required:** Yes.
-- **Decisions to resolve:** STT/TTS providers, streaming vs turn-based audio, transcript confidence handling.
-- **Scope:** Convert speech to text, call text agent, synthesize speech response, test with fakes.
+- **ADR required:** Yes: [0010 Voice Pipeline](../decisions/0010-voice-pipeline.md), Accepted.
+- **Decisions to resolve:** STT/TTS/model providers, streaming vs turn-based audio, transcript confidence handling, grounded model-response constraints.
+- **Scope:** Convert speech to text, call the session service, compose a grounded model-backed voice reply, synthesize speech response, test with fakes.
 - **Non-scope:** Twilio/browser transport polish, real call recording.
-- **Expected files:** Audio pipeline modules and tests.
-- **Implementation tasks:** Wire STT/TTS providers, preserve confidence metadata, add fake audio tests.
-- **Automated tests:** Fake transcript to spoken response, low-confidence transcript blocks writes.
+- **Expected files:** Audio pipeline, provider-adapter, and tests.
+- **Implementation tasks:** Wire model/STT/TTS providers, preserve confidence metadata, constrain model replies to session evidence, add fake audio/model tests.
+- **Automated tests:** Fake transcript to model-backed spoken response, low-confidence transcript blocks writes, model fallback behavior.
 - **Manual verification:** Local audio path if available.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** Voice pipeline can run without changing agent logic; fake providers cover CI.
-- **Expected demo evidence:** Local spoken turn or test trace.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** Voice pipeline can run without changing write-gate logic; model replies remain grounded; fake providers cover CI. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Fake voice-pipeline tests cover transcript, model-backed grounded response, synthesized speech, low-confidence write gating, and provider failure fallbacks.
 - **Rollback/recovery:** Provider adapters replaceable through interfaces.
 - **Documentation updates:** Architecture, README, status.
-- **Likely risks:** Latency, transcription errors, provider credentials.
+- **Likely risks:** Latency, transcription errors, model hallucination, provider credentials.
 
 ### M11 Real Call Or Browser Voice Integration
 
 - **Status:** not_started
-- **Goal:** Expose the voice pipeline through a real inbound call or browser voice loop.
+- **Goal:** Expose the voice pipeline through a real inbound call or browser voice loop with streaming transport and interruption handling where practical.
 - **Why now:** This satisfies the assignment's core voice-to-voice requirement.
 - **Dependencies:** M10.
 - **ADR required:** Yes.
-- **Decisions to resolve:** Twilio vs browser-first, public tunnel/deploy path, demo recording approach.
-- **Scope:** One working voice transport connected to the voice pipeline.
-- **Non-scope:** Admin UI, advanced call handling, barge-in unless explicitly chosen.
-- **Expected files:** Browser client or Twilio adapter, transport tests where practical.
-- **Implementation tasks:** Connect microphone/call audio, return spoken responses, document setup.
-- **Automated tests:** Transport unit tests with mocked provider events.
-- **Manual verification:** Complete real voice conversation.
+- **Decisions to resolve:** Twilio vs browser-first, streaming protocol and audio format, public tunnel/deploy path, barge-in policy, demo recording approach.
+- **Scope:** One working streaming voice transport connected to the voice pipeline; practical interruption handling for caller speech during assistant playback.
+- **Non-scope:** Admin UI, advanced call routing, multi-party calls, production telephony hardening.
+- **Expected files:** Browser streaming client or Twilio media-stream adapter, interruption/cancelation handling, transport tests where practical.
+- **Implementation tasks:** Connect microphone/call audio, stream or chunk caller audio into the pipeline, return spoken responses, stop or supersede assistant playback when caller interruption is detected where supported, document setup.
+- **Automated tests:** Transport unit tests with mocked provider events, playback-cancelation or stale-response tests where practical.
+- **Manual verification:** Complete real voice conversation, including at least one attempted caller interruption if the selected transport supports it.
 - **Validation commands:** TBD.
-- **Acceptance criteria:** User can talk to the assistant in voice and receive spoken answers; prospect capture path works.
+- **Acceptance criteria:** User can talk to the assistant in voice and receive spoken answers; prospect capture path works; streaming transport is used or a documented browser limitation is recorded; interruption behavior is implemented or explicitly documented as blocked by the selected transport/provider.
 - **Expected demo evidence:** Short recording or video.
 - **Rollback/recovery:** Fall back from Twilio to browser voice if credentials/trial limits block progress.
 - **Documentation updates:** README, architecture, status.
-- **Likely risks:** Telephony credentials, trial limitations, browser permissions, latency, audio format issues.
+- **Likely risks:** Telephony credentials, trial limitations, browser permissions, latency, audio format issues, interruption race conditions.
 
 ### M12 Integration And End-To-End Tests
 

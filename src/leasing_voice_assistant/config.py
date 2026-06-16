@@ -5,6 +5,9 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 EnvironmentName = Literal["local", "test", "development", "production"]
+ModelProviderName = Literal["fake", "openai_compatible"]
+SpeechToTextProviderName = Literal["fake", "deepgram"]
+TextToSpeechProviderName = Literal["fake", "elevenlabs"]
 
 
 class Settings(BaseSettings):
@@ -16,8 +19,16 @@ class Settings(BaseSettings):
 
     app_name: str = "Leasing Voice Assistant"
     environment: EnvironmentName = "local"
+    model_provider: ModelProviderName = "fake"
+    model_name: str = "gpt-4.1-mini"
+    model_base_url: str = "https://api.openai.com/v1/chat/completions"
     model_api_key: SecretStr | None = None
+    speech_to_text_provider: SpeechToTextProviderName = "fake"
+    speech_to_text_model: str = "nova-2"
     speech_to_text_api_key: SecretStr | None = None
+    text_to_speech_provider: TextToSpeechProviderName = "fake"
+    text_to_speech_model: str = "eleven_multilingual_v2"
+    text_to_speech_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
     text_to_speech_api_key: SecretStr | None = None
     telephony_account_sid: SecretStr | None = None
     telephony_auth_token: SecretStr | None = None

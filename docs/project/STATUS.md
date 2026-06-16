@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M09 text-based conversation harness is complete.
+- **Project state:** M10 voice pipeline is complete.
 - **Date:** 2026-06-17
 - **Current branch:** `main`.
-- **Active milestone:** None; M09 is complete.
-- **Latest completed milestone:** M09 Text-based conversation harness.
-- **Next milestone:** M10 Voice pipeline, pending ADR.
-- **Latest ADR:** `docs/decisions/0009-text-based-conversation-harness.md` (Accepted).
+- **Active milestone:** M11 Real call or browser voice integration.
+- **Latest completed milestone:** M10 Voice pipeline.
+- **Next milestone:** M11 Real call or browser voice integration.
+- **Latest ADR:** `docs/decisions/0010-voice-pipeline.md` (Accepted).
 
 ## Completed Work
 
@@ -53,19 +53,26 @@
 - Added `leasing_voice_assistant.conversation_session` with session state, transcript entries, turn requests/results, safe debug traces, answer-orchestration wiring, and prospect-capture wiring.
 - Added `leasing_voice_assistant.text_harness` with a local CLI over the same session service, SQLite repositories, database tools, Markdown KB retriever, and prospect write gate.
 - Added conversation-session tests for multi-turn answer context, complete prospect capture, confirmation-required writes, ambiguous-property write blocking, and real harness construction.
+- ADR 0010 accepted for a transport-neutral, turn-based voice pipeline with Deepgram-capable STT, constrained model-backed spoken reply composition, and ElevenLabs-capable TTS.
+- Added `leasing_voice_assistant.voice_pipeline` with audio input DTOs, voice turn request/result DTOs, transcript confidence propagation, bounded audio payload validation, timing metadata, degradation states, safe debug details, model grounding checks, and session-state preservation.
+- Added optional standard-library HTTP provider adapters for OpenAI-compatible chat completions, Deepgram speech-to-text, and ElevenLabs text-to-speech, each failing clearly when credentials are missing.
+- Extended settings with explicit fake/real provider selection, model names, base URL, STT model, TTS model, and TTS voice ID fields while preserving fake defaults.
+- Updated `.env.example` and README configuration documentation for the new provider settings.
+- Extended deterministic fake STT, model, and TTS providers with failure modes for offline coverage.
+- Added voice-pipeline tests for a normal spoken property question, low-confidence prospect-interest capture with caller metadata, unsupported model fact rejection, STT fallback, model fallback, TTS degradation, and missing real-provider credentials.
 
 ## Work Currently In Progress
 
-- None. Stop before M10 until the user asks to proceed with the next ADR-first milestone.
+- None. M11 should start with an ADR before browser or telephony transport implementation.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 61 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 68 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 23 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 23 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 27 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 27 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 | Scripted text harness: `printf 'How much is the lake-facing unit at Lakeview Flats?\nMy name is Avery Lee, my phone is 555-123-4567, and I am interested in this.\nquit\n' \| PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -m leasing_voice_assistant.text_harness --debug` | Passed; returned a grounded unit rent answer, safe debug traces, and a unit-level prospect-interest write acknowledgement. |
 
@@ -82,8 +89,10 @@
 - Answer-orchestration tests confirm rent answers use DB evidence, prior property context can answer a unit-specific follow-up, application-process answers come from KB snippets, unknown questions fall back without invention, missing property context asks for clarification, ambiguous property references ask for clarification, and structured pet-policy facts prefer DB evidence over KB guidance.
 - Prospect-capture tests confirm missing identity blocks writes, ambiguous property context blocks writes, unclear intent requires confirmation, garbled or low-confidence transcript markers require confirmation, explicit confirmation writes pending interest, clear intent writes unit-level interest, caller-phone metadata supports existing-prospect upsert, duplicate interest writes remain idempotent, and changed target details invalidate pending confirmation.
 - Conversation-session tests confirm text session state preserves multi-turn property context, transcript entries are recorded, debug traces expose answer and capture decisions safely, complete text prospect capture writes unit-level interest, confirmation-required text flows can be completed, ambiguous property writes remain blocked, and the CLI builder uses real local repositories.
+- Voice-pipeline tests confirm fake audio input is transcribed, transcript confidence flows into the session write gate, model-backed voice text is synthesized when grounded, unsupported model facts are rejected in favor of the safe session reply, STT failure returns a caller-safe repeat prompt, model failure falls back to the safe session reply, and TTS failure returns assistant text with a degraded result.
+- Provider-adapter tests confirm real OpenAI-compatible, Deepgram, and ElevenLabs adapters fail clearly without required credentials.
 - Scripted CLI verification confirms a local text conversation can answer a grounded Lakeview Flats rent question and record Avery Lee's synthetic interest in unit 2B.
-- No real provider calls, credentials, embeddings, vector database, agent prompts, voice pipeline, browser UI, telephony integration, persistent session storage, CRM workflow, schema migration, or real personal data were added.
+- No real provider calls, credentials, embeddings, vector database, browser UI, telephony integration, persistent session storage, CRM workflow, schema migration, committed audio recordings, or real personal data were added.
 
 ## Known Failures
 
@@ -93,13 +102,12 @@
 
 ## Blockers
 
-- None for M09.
+- None for M10.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
-- Real model, STT, and TTS providers.
 - Demo recording path.
 
 ## Assumptions
@@ -112,29 +120,36 @@
 - M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
 - M08 deterministic identity extraction is intentionally conservative; later model or voice layers may collect details more naturally while preserving the write-gate contract.
 - M09 uses in-memory session state only; durable session storage remains out of scope unless later voice or observability milestones require it.
+- M10 uses the model only as a constrained spoken-response composer after deterministic session decisions, not as a write gate or source of new property facts.
 
 ## External Setup Still Required
 
-- Model provider account and API key when a real model adapter is selected.
-- STT provider account and API key unless using browser/local transcription.
-- TTS provider account and API key unless using browser speech synthesis.
+- Model provider account and API key when the OpenAI-compatible model adapter is selected.
+- Deepgram account and API key when the Deepgram STT adapter is selected.
+- ElevenLabs account, API key, and voice selection when the ElevenLabs TTS adapter is selected.
 - Twilio account, number, and public tunnel/deployment if real telephony is chosen.
 - Demo recording method.
 
 ## Files Changed In Current Milestone
 
-- `README.md`
-- `docs/decisions/0009-text-based-conversation-harness.md`
+- `docs/decisions/0010-voice-pipeline.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
-- `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/conversation_session.py`
-- `src/leasing_voice_assistant/text_harness.py`
-- `tests/test_conversation_session.py`
+- `.env.example`
+- `README.md`
+- `src/leasing_voice_assistant/config.py`
+- `src/leasing_voice_assistant/fakes.py`
+- `src/leasing_voice_assistant/interfaces.py`
+- `src/leasing_voice_assistant/provider_adapters.py`
+- `src/leasing_voice_assistant/voice_pipeline.py`
+- `tests/test_config.py`
+- `tests/test_fakes.py`
+- `tests/test_provider_adapters.py`
+- `tests/test_voice_pipeline.py`
 
-## Files Changed In Latest Completed Milestone
+## Files Changed In Previous Completed Milestone
 
 - `README.md`
 - `docs/decisions/0009-text-based-conversation-harness.md`
@@ -149,11 +164,11 @@
 
 ## Exact Next Action
 
-Start M10 only after user instruction: create an ADR for the voice pipeline, discuss trade-offs, wait for explicit acceptance, then implement only M10.
+Start M11 with an ADR for browser voice versus Twilio transport integration.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0009. M00, M01, M02, M03, M04, M05, M06, M07, M08, and M09 are complete. M10 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0010. M00, M01, M02, M03, M04, M05, M06, M07, M08, M09, and M10 are complete. M11 is the next milestone and needs an ADR before implementation.
 
 ## Progress Log
 
@@ -326,3 +341,20 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, type check, and a scripted CLI text conversation.
 - Marked M09 complete and set M10 as the next milestone.
+
+### 2026-06-17 M10 ADR Review
+
+- Confirmed M09 is the latest completed milestone and M10 is the next incomplete milestone.
+- Confirmed M10 depends on M02 and M09, which are complete.
+- Created ADR 0010 for the voice pipeline and left it Proposed.
+- Revised ADR 0010 to include model-backed grounded replies plus Deepgram-capable STT and ElevenLabs-capable TTS while deferring Twilio transport to M11.
+
+### 2026-06-17 M10 Implementation
+
+- User explicitly accepted ADR 0010.
+- Marked ADR 0010 Accepted and implemented M10 only.
+- Added the transport-neutral voice pipeline, constrained model-backed spoken-response composition, timing/degradation metadata, optional provider adapters, provider settings, fake-provider failure modes, and focused tests.
+- Ran tests, lint, format check, and type check.
+- Marked M10 complete and set M11 as the next milestone.
+- Updated the M11 plan to make streaming transport and practical barge-in/interruption handling explicit ADR topics and acceptance criteria.
+- Updated the implementation plan, status, and ADR index.

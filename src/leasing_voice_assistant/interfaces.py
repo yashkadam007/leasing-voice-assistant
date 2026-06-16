@@ -16,18 +16,21 @@ class ModelMessage:
 @dataclass(frozen=True)
 class ModelResponse:
     text: str
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
 class Transcript:
     text: str
     confidence: float | None = None
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
 class SynthesizedSpeech:
     audio: bytes
     content_type: str
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

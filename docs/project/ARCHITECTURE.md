@@ -88,6 +88,16 @@ Implemented M09 text conversation harness:
 - `leasing_voice_assistant.text_harness` provides a thin CLI wrapper over the same session service using the local SQLite database and Markdown KB.
 - M09 does not introduce voice/audio handling, browser UI, Twilio integration, real model calls, persistent multi-session storage, or external agent frameworks.
 
+Implemented M10 voice pipeline:
+
+- `leasing_voice_assistant.voice_pipeline` exposes a transport-neutral, turn-based audio pipeline.
+- The pipeline accepts bounded audio bytes, calls a `SpeechToTextProvider`, passes transcript text and confidence into the M09 conversation session service, asks a `ModelProvider` to rewrite only the safe grounded session reply for spoken delivery, and calls a `TextToSpeechProvider`.
+- Results include transcript text and confidence, assistant text, optional synthesized speech, updated session state, STT/session/model/TTS timing fields, degradation status, and safe debug details.
+- Model output is treated as phrasing only: unsupported numbers or text with no meaningful overlap with the safe reply/evidence are rejected and the session reply is used instead.
+- `leasing_voice_assistant.provider_adapters` contains optional standard-library HTTP adapters for OpenAI-compatible chat completions, Deepgram speech-to-text, and ElevenLabs text-to-speech. Constructors fail clearly when credentials are missing.
+- Deterministic fake STT/model/TTS providers cover CI tests, including provider failure and low-confidence transcript paths.
+- M10 does not introduce Twilio, browser microphone UI, websocket streaming, public tunneling, demo recording, persistent session storage, committed audio recordings, real personal data, or required live provider calls.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -98,7 +108,9 @@ Recommended MVP boundaries:
 
 ## Voice And Audio Pipeline
 
-The voice path should support two implementations:
+The implemented M10 backend voice path is transport-neutral. Browser and telephony adapters should collect one utterance, call `VoicePipeline.handle_turn`, then play `VoiceTurnResult.speech` when synthesis succeeds or display/read `assistant_text` when TTS is degraded.
+
+The future transport path should support two implementations:
 
 - Browser voice loop: microphone input, speech recognition or streamed audio to backend, spoken assistant responses, and an easy demo path.
 - Twilio inbound call: inbound number, media streaming, backend websocket, STT/TTS, and response audio back to the call.
