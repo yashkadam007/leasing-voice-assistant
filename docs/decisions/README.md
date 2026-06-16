@@ -51,3 +51,4 @@ Each ADR should link to:
 | [0004](0004-database-query-tools.md) | Database Query Tools | Accepted | M04 | Defines model-safe read-only database tools, structured evidence, result limits, and conservative confidence metadata. |
 | [0005](0005-knowledge-base-ingestion-and-retrieval.md) | Knowledge Base Ingestion And Retrieval | Accepted | M05 | Defines Markdown KB source, deterministic lexical retrieval, source-attributed snippets, and explicit no-result behavior. |
 | [0006](0006-property-resolution-state.md) | Property Resolution State | Accepted | M06 | Defines deterministic conversational property/unit resolution state, confidence classification, evidence, and clarification-required outcomes. |
+| [0007](0007-grounded-answer-orchestration.md) | Grounded Answer Orchestration | Accepted | M07 | Defines deterministic text-turn orchestration with explicit routing, evidence, grounded answer composition, and conservative fallbacks. |

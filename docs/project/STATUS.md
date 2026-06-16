@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M06 property-resolution state is complete.
+- **Project state:** M07 grounded answer orchestration is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M06 is complete.
-- **Latest completed milestone:** M06 Property-resolution state.
-- **Next milestone:** M07 Grounded answer orchestration, pending ADR.
-- **Latest ADR:** `docs/decisions/0006-property-resolution-state.md` (Accepted).
+- **Active milestone:** None; M07 is complete.
+- **Latest completed milestone:** M07 Grounded answer orchestration.
+- **Next milestone:** M08 Safe prospect capture, pending ADR.
+- **Latest ADR:** `docs/decisions/0007-grounded-answer-orchestration.md` (Accepted).
 
 ## Completed Work
 
@@ -42,19 +42,22 @@
 - ADR 0006 accepted for deterministic property-resolution state.
 - Added `leasing_voice_assistant.property_resolution` with explicit resolution state, confidence, candidates, evidence, clarification reasons, and write-readiness classification.
 - Added property-resolution tests for exact property references, context reuse, unit-hint narrowing, ambiguous property references, ambiguous unit references, no-match behavior, and replacing prior context with a new explicit property.
+- ADR 0007 accepted for deterministic grounded answer orchestration.
+- Added `leasing_voice_assistant.answer_orchestration` with text-turn request/result DTOs, database-vs-KB route classification, evidence exposure, fallback reasons, and grounded answer composition.
+- Added answer-orchestration tests for DB rent answers, prior-context unit facts, KB application-process answers, unknown fallback behavior, missing-property clarification, ambiguous-property clarification, and DB precedence over KB guidance for structured pet-policy facts.
 
 ## Work Currently In Progress
 
-- None. Stop before M07 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M08 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 40 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 47 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 16 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 16 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 18 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 18 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
@@ -67,7 +70,8 @@
 - Database-tool tests confirm exact, ambiguous, and no-match property search behavior, empty queries do not return every property, unit list limits are enforced, and unit fact lookups return structured grounding evidence without fallback facts for missing units.
 - Knowledge-base tests confirm Markdown sections load with stable source metadata, FAQ and property-description queries retrieve relevant snippets, result and snippet limits are enforced, missing KB directories are safe, and unknown queries return no snippets.
 - Property-resolution tests confirm exact references resolve property context, prior context supports follow-up references, unit hints narrow to a unique unit when evidence is sufficient, ambiguous property and unit references require clarification, no-match turns remain unresolved, and new explicit property references replace prior context.
-- No real provider calls, credentials, embeddings, vector database, agent prompts, answer orchestration, prospect writes, prospect capture gate, or voice pipeline were added.
+- Answer-orchestration tests confirm rent answers use DB evidence, prior property context can answer a unit-specific follow-up, application-process answers come from KB snippets, unknown questions fall back without invention, missing property context asks for clarification, ambiguous property references ask for clarification, and structured pet-policy facts prefer DB evidence over KB guidance.
+- No real provider calls, credentials, embeddings, vector database, agent prompts, prospect writes, prospect capture gate, or voice pipeline were added.
 
 ## Known Failures
 
@@ -77,7 +81,7 @@
 
 ## Blockers
 
-- None for M06.
+- None for M07.
 
 ## Unresolved Decisions
 
@@ -106,35 +110,35 @@
 
 ## Files Changed In Current Milestone
 
-- `docs/decisions/0006-property-resolution-state.md`
+- `README.md`
+- `docs/decisions/0007-grounded-answer-orchestration.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `README.md`
-- `src/leasing_voice_assistant/property_resolution.py`
-- `tests/test_property_resolution.py`
+- `src/leasing_voice_assistant/answer_orchestration.py`
+- `tests/test_answer_orchestration.py`
 
 ## Files Changed In Latest Completed Milestone
 
 - `README.md`
-- `docs/decisions/0006-property-resolution-state.md`
+- `docs/decisions/0007-grounded-answer-orchestration.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/property_resolution.py`
-- `tests/test_property_resolution.py`
+- `src/leasing_voice_assistant/answer_orchestration.py`
+- `tests/test_answer_orchestration.py`
 
 ## Exact Next Action
 
-Start M07 only after user instruction: create an ADR for grounded answer orchestration, discuss trade-offs, wait for explicit acceptance, then implement only M07.
+Start M08 only after user instruction: create an ADR for safe prospect capture, discuss trade-offs, wait for explicit acceptance, then implement only M08.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0006. M00, M01, M02, M03, M04, M05, and M06 are complete. M07 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0007. M00, M01, M02, M03, M04, M05, M06, and M07 are complete. M08 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -252,3 +256,21 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M06 complete and set M07 as the next milestone.
+
+### 2026-06-16 M07 ADR Review
+
+- Confirmed M06 is the latest completed milestone and M07 is the next incomplete milestone.
+- Confirmed M07 depends on M04, M05, and M06, which are complete.
+- Created ADR 0007 for grounded answer orchestration and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M07 Implementation
+
+- User explicitly accepted ADR 0007.
+- Marked ADR 0007 Accepted and implemented M07 only.
+- Added deterministic grounded answer orchestration using existing database tools, KB retrieval, and property-resolution state.
+- Added focused answer-orchestration tests for DB facts, KB answers, unknown fallback, clarification behavior, prior context, and DB precedence.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M07 complete and set M08 as the next milestone.

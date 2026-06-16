@@ -59,6 +59,16 @@ Implemented M06 property resolution:
 - Ambiguous property or unit references require clarification and are not write-ready.
 - Prior resolved context can carry across turns and unit hints can narrow that context.
 
+Implemented M07 grounded answer orchestration:
+
+- `leasing_voice_assistant.answer_orchestration` exposes a deterministic `AnswerOrchestrator`.
+- The orchestrator accepts one text turn plus optional prior resolution state.
+- It calls the M06 resolver, routes structured unit/property facts to database tools, and routes policy, FAQ, lease-term, application-process, and descriptive questions to KB retrieval.
+- Turn results include answer text, route, updated resolution state, requested database fields, database evidence, KB snippets, and fallback reason.
+- Database facts remain authoritative for structured unit fields such as rent, availability, parking, amenities, and pet policy.
+- Missing or ambiguous evidence produces a clarification or graceful unknown fallback rather than an invented answer.
+- M07 does not introduce model calls, prospect writes, voice/audio handling, persistent session storage, or an agent framework dependency.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -113,13 +123,15 @@ sequenceDiagram
   Agent-->>User: Natural answer or clarification
 ```
 
-The agent should:
+The M07 text orchestrator currently:
 
 - Route factual property questions to database tools.
 - Route policies, FAQs, lease terms, and richer descriptions to KB retrieval.
 - Ask clarifying questions for ambiguous property references.
 - Refuse or qualify answers when evidence is missing.
-- Avoid writes until the property and caller details are clear.
+- Avoid writes entirely; prospect capture and write gating are later milestones.
+
+Later model or voice orchestration should preserve the same evidence-first turn contract unless a later ADR supersedes it.
 
 ## Database Read Tools
 

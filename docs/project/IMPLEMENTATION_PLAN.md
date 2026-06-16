@@ -11,7 +11,7 @@
 | M04 | Database query tools | completed | [0004](../decisions/0004-database-query-tools.md) |
 | M05 | Knowledge-base ingestion and retrieval | completed | [0005](../decisions/0005-knowledge-base-ingestion-and-retrieval.md) |
 | M06 | Property-resolution state | completed | [0006](../decisions/0006-property-resolution-state.md) |
-| M07 | Grounded answer orchestration | not_started | Required |
+| M07 | Grounded answer orchestration | completed | [0007](../decisions/0007-grounded-answer-orchestration.md) |
 | M08 | Safe prospect capture | not_started | Required |
 | M09 | Text-based conversation harness | not_started | Required |
 | M10 | Voice pipeline | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M07 Grounded answer orchestration, pending ADR.
+**Next milestone:** M08 Safe prospect capture, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -194,11 +194,11 @@
 
 ### M07 Grounded Answer Orchestration
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Implement text-turn orchestration that chooses DB or KB tools and composes grounded answers.
 - **Why now:** This creates the core agent behavior before capture and voice.
 - **Dependencies:** M04, M05, M06.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0007 Grounded Answer Orchestration](../decisions/0007-grounded-answer-orchestration.md), Accepted.
 - **Decisions to resolve:** Agent framework, prompt/tool contract, fallback policy, DB-vs-KB precedence.
 - **Scope:** Text input to grounded text response using tools.
 - **Non-scope:** Prospect writes, audio, browser/telephony.
@@ -206,9 +206,9 @@
 - **Implementation tasks:** Route questions, call tools, cite/track evidence internally, handle unknowns.
 - **Automated tests:** Rent from DB, pet policy from DB or KB as designed, FAQ from KB, unknown answer, conflicting fact handling.
 - **Manual verification:** Run text turns through harness or tests.
-- **Validation commands:** TBD.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
 - **Acceptance criteria:** Answers are grounded; unknowns are not invented; tool choice is inspectable.
-- **Expected demo evidence:** Conversation transcript from text tests.
+- **Expected demo evidence:** Text-turn tests: 47 tests passed, including 7 answer-orchestration tests.
 - **Rollback/recovery:** Prompt and routing can be tuned before voice.
 - **Documentation updates:** Architecture, requirements traceability, status.
 - **Likely risks:** Hallucination, nondeterministic model behavior, conflicting facts.

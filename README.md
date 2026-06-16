@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M06 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, and deterministic property-resolution state. Grounded answer orchestration, prospect capture gating, and voice integration are planned later milestones.
+M07 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, and grounded text-turn answer orchestration. Prospect capture gating and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M06 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M06 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, or property resolution. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M07 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, or grounded text-turn orchestration. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Local Database
 
@@ -36,6 +36,10 @@ Committed knowledge-base source documents live in `data/kb/`. The M05 retriever 
 ## Property Resolution
 
 `leasing_voice_assistant.property_resolution.PropertyResolver` tracks property and optional unit context across text turns using deterministic database-tool evidence. It returns explicit resolution state for resolved, probable, ambiguous, and unresolved cases, and marks ambiguous or unresolved context as not write-ready.
+
+## Answer Orchestration
+
+`leasing_voice_assistant.answer_orchestration.AnswerOrchestrator` handles deterministic text turns. It resolves property context, routes structured property/unit questions to database tools, routes policy and FAQ questions to the Markdown knowledge retriever, returns grounded answer text, and exposes route, evidence, fallback reason, and updated resolution state for tests and future logs.
 
 ## Run
 
