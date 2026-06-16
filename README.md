@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M07 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, and grounded text-turn answer orchestration. Prospect capture gating and voice integration are planned later milestones.
+M08 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, and safe prospect-capture write gating. Text conversation harness and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M07 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M07 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, or grounded text-turn orchestration. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M08 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, or prospect capture tests. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Local Database
 
@@ -40,6 +40,10 @@ Committed knowledge-base source documents live in `data/kb/`. The M05 retriever 
 ## Answer Orchestration
 
 `leasing_voice_assistant.answer_orchestration.AnswerOrchestrator` handles deterministic text turns. It resolves property context, routes structured property/unit questions to database tools, routes policy and FAQ questions to the Markdown knowledge retriever, returns grounded answer text, and exposes route, evidence, fallback reason, and updated resolution state for tests and future logs.
+
+## Prospect Capture
+
+`leasing_voice_assistant.prospect_capture.ProspectCaptureService` gates prospect writes. It requires write-ready property or unit resolution, plausible caller name and phone, and clear interest intent or explicit confirmation before calling the prospect repository. Blocked and confirmation-required outcomes are returned as structured results for future conversation harnesses.
 
 ## Run
 

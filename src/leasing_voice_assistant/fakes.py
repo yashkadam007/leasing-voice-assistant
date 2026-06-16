@@ -102,10 +102,11 @@ class FakeProspectRepository:
         self.interests: list[ProspectInterestRecord] = []
 
     def upsert_prospect(self, *, name: str, phone: str, email: str | None = None) -> ProspectRecord:
-        existing = self.prospects_by_phone.get(phone)
+        phone_key = _phone_key(phone)
+        existing = self.prospects_by_phone.get(phone_key)
         prospect_id = existing.id if existing else f"prospect-{len(self.prospects_by_phone) + 1}"
         prospect = ProspectRecord(id=prospect_id, name=name, phone=phone, email=email)
-        self.prospects_by_phone[phone] = prospect
+        self.prospects_by_phone[phone_key] = prospect
         return prospect
 
     def record_interest(
@@ -117,6 +118,29 @@ class FakeProspectRepository:
         source: str = "voice_call",
         notes: str | None = None,
     ) -> ProspectInterestRecord:
+        target_key = unit_id or property_id
+        existing = next(
+            (
+                interest
+                for interest in self.interests
+                if interest.prospect_id == prospect_id
+                and interest.source == source
+                and (interest.unit_id or interest.property_id) == target_key
+            ),
+            None,
+        )
+        if existing is not None:
+            updated = ProspectInterestRecord(
+                id=existing.id,
+                prospect_id=existing.prospect_id,
+                property_id=property_id,
+                unit_id=unit_id,
+                source=source,
+                status=existing.status,
+                notes=notes or existing.notes,
+            )
+            self.interests[self.interests.index(existing)] = updated
+            return updated
         interest = ProspectInterestRecord(
             id=f"interest-{len(self.interests) + 1}",
             prospect_id=prospect_id,
@@ -143,3 +167,8 @@ class FakeKnowledgeRetriever:
             if any(term in snippet.text.casefold() for term in query_terms)
         )
         return matches[:limit]
+
+
+def _phone_key(phone: str) -> str:
+    digits = "".join(character for character in phone if character.isdigit())
+    return digits[-10:] if len(digits) == 11 and digits.startswith("1") else digits

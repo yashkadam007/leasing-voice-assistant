@@ -69,6 +69,16 @@ Implemented M07 grounded answer orchestration:
 - Missing or ambiguous evidence produces a clarification or graceful unknown fallback rather than an invented answer.
 - M07 does not introduce model calls, prospect writes, voice/audio handling, persistent session storage, or an agent framework dependency.
 
+Implemented M08 safe prospect capture:
+
+- `leasing_voice_assistant.prospect_capture` exposes a deterministic `ProspectCaptureService`.
+- Capture state records caller name, phone, optional email, interest intent, and any pending confirmation.
+- Write-gate results are explicit: blocked, needs confirmation, or written.
+- The service requires M06 write-ready property or unit context, plausible caller name and phone, and clear interest intent or explicit confirmation before writing.
+- Low-confidence or garbled transcript markers create a pending confirmation instead of a write when the required details are otherwise present.
+- Prospect writes go through the existing `ProspectRepository` interface: upsert prospect by phone, then record idempotent property- or unit-level interest.
+- M08 does not introduce voice/audio handling, real provider calls, persistent session storage, schema changes, or CRM workflow.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -129,7 +139,7 @@ The M07 text orchestrator currently:
 - Route policies, FAQs, lease terms, and richer descriptions to KB retrieval.
 - Ask clarifying questions for ambiguous property references.
 - Refuse or qualify answers when evidence is missing.
-- Avoid writes entirely; prospect capture and write gating are later milestones.
+- Avoid writes directly; prospect capture and write gating are handled by the separate M08 service.
 
 Later model or voice orchestration should preserve the same evidence-first turn contract unless a later ADR supersedes it.
 
@@ -175,6 +185,8 @@ The assistant should capture:
 
 For browser voice, phone number may need to be spoken or manually supplied in the test harness. The assistant should repeat critical details before writing when transcription quality is uncertain.
 
+M08 implements this as structured capture state rather than session storage. Caller phone metadata wins over spoken extraction when present. Spoken phone numbers must contain a plausible 10 to 15 digits before the write gate can proceed. Name extraction is intentionally conservative and can be improved by a later model-backed session layer without changing the write contract.
+
 ## Confidence And Confirmation Gate
 
 ```mermaid
@@ -198,6 +210,12 @@ The gate should prevent:
 - Duplicate prospect records when phone number matches.
 - Duplicate interest rows for the same prospect/unit unless the design explicitly allows history.
 
+M08 implements the gate with explicit outcomes:
+
+- `blocked` for missing or unsafe prerequisites, such as ambiguous property resolution, missing name, missing phone, or no write-ready target.
+- `needs_confirmation` when identity and target are present but intent is unclear, or when transcript confidence is low or the text contains garbled markers.
+- `written` only after all checks pass or a pending confirmation is explicitly confirmed without changing critical details.
+
 ## Prospect Upsert And Interest Logging
 
 The MVP should:
@@ -209,6 +227,8 @@ The MVP should:
 - Make interest creation idempotent for repeated confirmations in the same conversation.
 
 ADR 0003 defines the storage-level idempotency rule: interest rows are unique for the same prospect, source, and target unit or property. Later safe-capture logic can still decide when a write is allowed.
+
+ADR 0008 adds the application-level gate before those repository calls. Unit-level interest is recorded when the resolution state includes a unit ID; otherwise property-level interest is recorded for a write-ready property.
 
 ## Observability And Structured Logging
 

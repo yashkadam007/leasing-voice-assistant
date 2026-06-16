@@ -12,7 +12,7 @@
 | M05 | Knowledge-base ingestion and retrieval | completed | [0005](../decisions/0005-knowledge-base-ingestion-and-retrieval.md) |
 | M06 | Property-resolution state | completed | [0006](../decisions/0006-property-resolution-state.md) |
 | M07 | Grounded answer orchestration | completed | [0007](../decisions/0007-grounded-answer-orchestration.md) |
-| M08 | Safe prospect capture | not_started | Required |
+| M08 | Safe prospect capture | completed | [0008](../decisions/0008-safe-prospect-capture.md) |
 | M09 | Text-based conversation harness | not_started | Required |
 | M10 | Voice pipeline | not_started | Required |
 | M11 | Real call or browser voice integration | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M08 Safe prospect capture, pending ADR.
+**Next milestone:** M09 Text-based conversation harness, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -215,11 +215,11 @@
 
 ### M08 Safe Prospect Capture
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Safely capture caller identity and register/update prospect interest only after confirmation/confidence checks.
 - **Why now:** Prospect writes are central and must be safe before exposing voice.
 - **Dependencies:** M03, M06, M07.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0008 Safe Prospect Capture](../decisions/0008-safe-prospect-capture.md), Accepted.
 - **Decisions to resolve:** Confirmation policy, phone/name confidence rules, idempotent interest uniqueness, notes format.
 - **Scope:** Capture state, write gate, prospect upsert, interest logging.
 - **Non-scope:** Audio, Twilio caller ID integration beyond interface fields.
@@ -227,9 +227,9 @@
 - **Implementation tasks:** Collect name/phone, detect interest intent, gate writes, upsert prospect, log interest idempotently.
 - **Automated tests:** Missing name, missing phone, ambiguous property, unclear intent, garbled transcript, duplicate phone, duplicate interest.
 - **Manual verification:** Text scenarios for safe and blocked writes.
-- **Validation commands:** TBD.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
 - **Acceptance criteria:** No write occurs without resolved property, clear identity, and clear intent or confirmation.
-- **Expected demo evidence:** Test traces showing blocked and allowed writes.
+- **Expected demo evidence:** Test traces showing blocked, confirmation-required, and allowed writes: 56 tests passed, including 9 prospect-capture tests.
 - **Rollback/recovery:** Database can be reset from seed; writes should be idempotent.
 - **Documentation updates:** Architecture, requirements traceability, status.
 - **Likely risks:** Accidental registration, duplicate prospects, writes from transcription errors.

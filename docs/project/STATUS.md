@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M07 grounded answer orchestration is complete.
+- **Project state:** M08 safe prospect capture is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M07 is complete.
-- **Latest completed milestone:** M07 Grounded answer orchestration.
-- **Next milestone:** M08 Safe prospect capture, pending ADR.
-- **Latest ADR:** `docs/decisions/0007-grounded-answer-orchestration.md` (Accepted).
+- **Active milestone:** None; M08 is complete.
+- **Latest completed milestone:** M08 Safe prospect capture.
+- **Next milestone:** M09 Text-based conversation harness, pending ADR.
+- **Latest ADR:** `docs/decisions/0008-safe-prospect-capture.md` (Accepted).
 
 ## Completed Work
 
@@ -45,19 +45,23 @@
 - ADR 0007 accepted for deterministic grounded answer orchestration.
 - Added `leasing_voice_assistant.answer_orchestration` with text-turn request/result DTOs, database-vs-KB route classification, evidence exposure, fallback reasons, and grounded answer composition.
 - Added answer-orchestration tests for DB rent answers, prior-context unit facts, KB application-process answers, unknown fallback behavior, missing-property clarification, ambiguous-property clarification, and DB precedence over KB guidance for structured pet-policy facts.
+- ADR 0008 accepted for deterministic safe prospect capture.
+- Added `leasing_voice_assistant.prospect_capture` with capture request/result DTOs, capture state, pending confirmation state, explicit write-gate outcomes, conservative identity extraction, interest-intent detection, low-confidence handling, and repository-backed writes.
+- Updated `FakeProspectRepository` to normalize phone keys and keep interest writes idempotent for the same prospect, source, and target.
+- Added prospect-capture tests for missing name, missing phone, ambiguous property, unclear intent, garbled/low-confidence transcript, explicit confirmation, unit-level interest writes, caller-phone upsert behavior, duplicate interest idempotency, and pending-confirmation invalidation.
 
 ## Work Currently In Progress
 
-- None. Stop before M08 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M09 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 47 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 56 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 18 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 18 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 20 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 20 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
@@ -71,7 +75,8 @@
 - Knowledge-base tests confirm Markdown sections load with stable source metadata, FAQ and property-description queries retrieve relevant snippets, result and snippet limits are enforced, missing KB directories are safe, and unknown queries return no snippets.
 - Property-resolution tests confirm exact references resolve property context, prior context supports follow-up references, unit hints narrow to a unique unit when evidence is sufficient, ambiguous property and unit references require clarification, no-match turns remain unresolved, and new explicit property references replace prior context.
 - Answer-orchestration tests confirm rent answers use DB evidence, prior property context can answer a unit-specific follow-up, application-process answers come from KB snippets, unknown questions fall back without invention, missing property context asks for clarification, ambiguous property references ask for clarification, and structured pet-policy facts prefer DB evidence over KB guidance.
-- No real provider calls, credentials, embeddings, vector database, agent prompts, prospect writes, prospect capture gate, or voice pipeline were added.
+- Prospect-capture tests confirm missing identity blocks writes, ambiguous property context blocks writes, unclear intent requires confirmation, garbled or low-confidence transcript markers require confirmation, explicit confirmation writes pending interest, clear intent writes unit-level interest, caller-phone metadata supports existing-prospect upsert, duplicate interest writes remain idempotent, and changed target details invalidate pending confirmation.
+- No real provider calls, credentials, embeddings, vector database, agent prompts, voice pipeline, persistent session storage, CRM workflow, schema migration, or real personal data were added.
 
 ## Known Failures
 
@@ -81,14 +86,13 @@
 
 ## Blockers
 
-- None for M07.
+- None for M08.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
 - Real model, STT, and TTS providers.
-- Write confirmation and confidence policy beyond property-resolution write readiness.
 - Demo recording path.
 
 ## Assumptions
@@ -99,6 +103,7 @@
 - M05 created synthetic KB content because no separate raw knowledge-base files were present in the repository.
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
 - M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
+- M08 deterministic identity extraction is intentionally conservative; later model or voice layers may collect details more naturally while preserving the write-gate contract.
 
 ## External Setup Still Required
 
@@ -111,34 +116,36 @@
 ## Files Changed In Current Milestone
 
 - `README.md`
-- `docs/decisions/0007-grounded-answer-orchestration.md`
+- `docs/decisions/0008-safe-prospect-capture.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/answer_orchestration.py`
-- `tests/test_answer_orchestration.py`
+- `src/leasing_voice_assistant/fakes.py`
+- `src/leasing_voice_assistant/prospect_capture.py`
+- `tests/test_prospect_capture.py`
 
 ## Files Changed In Latest Completed Milestone
 
 - `README.md`
-- `docs/decisions/0007-grounded-answer-orchestration.md`
+- `docs/decisions/0008-safe-prospect-capture.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/answer_orchestration.py`
-- `tests/test_answer_orchestration.py`
+- `src/leasing_voice_assistant/fakes.py`
+- `src/leasing_voice_assistant/prospect_capture.py`
+- `tests/test_prospect_capture.py`
 
 ## Exact Next Action
 
-Start M08 only after user instruction: create an ADR for safe prospect capture, discuss trade-offs, wait for explicit acceptance, then implement only M08.
+Start M09 only after user instruction: create an ADR for the text-based conversation harness, discuss trade-offs, wait for explicit acceptance, then implement only M09.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0007. M00, M01, M02, M03, M04, M05, M06, and M07 are complete. M08 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0008. M00, M01, M02, M03, M04, M05, M06, M07, and M08 are complete. M09 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -274,3 +281,21 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M07 complete and set M08 as the next milestone.
+
+### 2026-06-16 M08 ADR Review
+
+- Confirmed M07 is the latest completed milestone and M08 is the next incomplete milestone.
+- Confirmed M08 depends on M03, M06, and M07, which are complete.
+- Created ADR 0008 from the established Tyree/Akerman template and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M08 Implementation
+
+- User explicitly accepted ADR 0008.
+- Marked ADR 0008 Accepted and implemented M08 only.
+- Added deterministic prospect-capture state, write-gate outcomes, pending confirmation handling, conservative identity extraction, interest-intent detection, low-confidence handling, and repository-backed prospect writes.
+- Added focused prospect-capture tests for blocked writes, confirmation-required writes, allowed writes, duplicate-safe writes, caller-phone upsert behavior, unit-level interest, and confirmation invalidation.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M08 complete and set M09 as the next milestone.
