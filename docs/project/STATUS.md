@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M04 database query tools is complete.
+- **Project state:** M05 knowledge-base ingestion and retrieval is complete.
 - **Date:** 2026-06-16
 - **Current branch:** `main`.
-- **Active milestone:** None; M04 is complete.
-- **Latest completed milestone:** M04 Database query tools.
-- **Next milestone:** M05 Knowledge-base ingestion and retrieval, pending ADR.
-- **Latest ADR:** `docs/decisions/0004-database-query-tools.md` (Accepted).
+- **Active milestone:** None; M05 is complete.
+- **Latest completed milestone:** M05 Knowledge-base ingestion and retrieval.
+- **Next milestone:** M06 Property-resolution state, pending ADR.
+- **Latest ADR:** `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md` (Accepted).
 
 ## Completed Work
 
@@ -34,19 +34,24 @@
 - ADR 0004 accepted for framework-neutral, model-safe, read-only database query tools.
 - Added `leasing_voice_assistant.database_tools` with typed request/response DTOs, structured evidence items, result limits, property match status, and conservative confidence metadata.
 - Added database-tool tests for exact property search, ambiguous search, no-match search, empty-query handling, unit list limits, unit fact evidence, and missing unit behavior.
+- ADR 0005 accepted for Markdown knowledge-base source and deterministic lexical retrieval.
+- Added Markdown KB source documents for general leasing FAQ, Lakeview Flats, and Cedar Park Townhomes.
+- Added `leasing_voice_assistant.knowledge_base` with Markdown ingestion, stable source-section IDs, bounded snippets, deterministic lexical scoring, and source metadata.
+- Extended `KnowledgeSnippet` with optional title, section heading, and metadata fields while preserving the existing retriever protocol.
+- Added knowledge-base tests for section ingestion, FAQ retrieval, property-description retrieval, source attribution, result and snippet limits, missing directories, and unknown-query behavior.
 
 ## Work Currently In Progress
 
-- None. Stop before M05 until the user asks to proceed with the next ADR-first milestone.
+- None. Stop before M06 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 27 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 33 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 12 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 12 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 14 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 14 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 
 ## Validation Results
@@ -57,7 +62,8 @@
 - Fake provider tests confirm deterministic model, STT, TTS, voice session, repository, prospect, and KB retriever behavior.
 - Persistence tests confirm migrations create the schema, seed loading is idempotent, seeded property/unit facts are readable, prospect upsert matches normalized phone numbers, and repeated interest writes do not create duplicates.
 - Database-tool tests confirm exact, ambiguous, and no-match property search behavior, empty queries do not return every property, unit list limits are enforced, and unit fact lookups return structured grounding evidence without fallback facts for missing units.
-- No real provider calls, credentials, knowledge-base retrieval implementation, agent prompts, prospect capture gate, or voice pipeline were added.
+- Knowledge-base tests confirm Markdown sections load with stable source metadata, FAQ and property-description queries retrieve relevant snippets, result and snippet limits are enforced, missing KB directories are safe, and unknown queries return no snippets.
+- No real provider calls, credentials, embeddings, vector database, agent prompts, prospect capture gate, or voice pipeline were added.
 
 ## Known Failures
 
@@ -67,13 +73,12 @@
 
 ## Blockers
 
-- None for M04.
+- None for M05.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
-- Knowledge-base retrieval approach.
 - Real model, STT, and TTS providers.
 - Write confirmation and confidence policy.
 - Demo recording path.
@@ -83,6 +88,7 @@
 - One or two properties are sufficient for MVP.
 - Browser-based voice is acceptable if telephony credentials or trial setup block Twilio.
 - M03 created synthetic seed data because no separate sample listing files were present in the repository.
+- M05 created synthetic KB content because no separate raw knowledge-base files were present in the repository.
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
 - M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
 
@@ -96,35 +102,43 @@
 
 ## Files Changed In Current Milestone
 
-- `README.md`
-- `docs/decisions/0004-database-query-tools.md`
+- `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/database_tools.py`
-- `tests/test_database_tools.py`
+- `README.md`
+- `data/kb/cedar-park-townhomes.md`
+- `data/kb/general-leasing-faq.md`
+- `data/kb/lakeview-flats.md`
+- `src/leasing_voice_assistant/interfaces.py`
+- `src/leasing_voice_assistant/knowledge_base.py`
+- `tests/test_knowledge_base.py`
 
 ## Files Changed In Latest Completed Milestone
 
 - `README.md`
-- `docs/decisions/0004-database-query-tools.md`
+- `data/kb/cedar-park-townhomes.md`
+- `data/kb/general-leasing-faq.md`
+- `data/kb/lakeview-flats.md`
+- `docs/decisions/0005-knowledge-base-ingestion-and-retrieval.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/database_tools.py`
-- `tests/test_database_tools.py`
+- `src/leasing_voice_assistant/interfaces.py`
+- `src/leasing_voice_assistant/knowledge_base.py`
+- `tests/test_knowledge_base.py`
 
 ## Exact Next Action
 
-Start M05 only after user instruction: create an ADR for knowledge-base ingestion and retrieval, discuss trade-offs, wait for explicit acceptance, then implement only M05.
+Start M06 only after user instruction: create an ADR for property-resolution state, discuss trade-offs, wait for explicit acceptance, then implement only M06.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0004. M00, M01, M02, M03, and M04 are complete. M05 is the next milestone and must begin with an ADR.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0005. M00, M01, M02, M03, M04, and M05 are complete. M06 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -205,3 +219,22 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M04 complete and set M05 as the next milestone.
+
+### 2026-06-16 M05 ADR Review
+
+- Confirmed M04 is the latest completed milestone and M05 is the next incomplete milestone.
+- Confirmed M05 depends on M01 and M02, which are complete.
+- Created ADR 0005 from the established Tyree/Akerman template and left it Proposed.
+- Updated the implementation plan, status, and ADR index.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M05 Implementation
+
+- User explicitly accepted ADR 0005.
+- Marked ADR 0005 Accepted and implemented M05 only.
+- Added Markdown KB source documents for general leasing FAQ, Lakeview Flats, and Cedar Park Townhomes.
+- Added deterministic Markdown ingestion and lexical retrieval with source IDs, titles, headings, bounded snippets, scores, and metadata.
+- Added focused knowledge-base tests for retrieval, source attribution, limits, missing directories, and unknown queries.
+- Updated README, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M05 complete and set M06 as the next milestone.

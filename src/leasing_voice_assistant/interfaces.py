@@ -85,6 +85,9 @@ class KnowledgeSnippet:
     source_id: str
     text: str
     score: float
+    title: str | None = None
+    section_heading: str | None = None
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 class ModelProvider(Protocol):

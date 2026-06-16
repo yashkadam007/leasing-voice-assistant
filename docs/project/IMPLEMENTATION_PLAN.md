@@ -9,7 +9,7 @@
 | M02 | Configuration and provider interfaces | completed | [0002](../decisions/0002-configuration-and-provider-interfaces.md) |
 | M03 | Property/prospect persistence and seed data | completed | [0003](../decisions/0003-property-prospect-persistence-and-seed-data.md) |
 | M04 | Database query tools | completed | [0004](../decisions/0004-database-query-tools.md) |
-| M05 | Knowledge-base ingestion and retrieval | not_started | Required |
+| M05 | Knowledge-base ingestion and retrieval | completed | [0005](../decisions/0005-knowledge-base-ingestion-and-retrieval.md) |
 | M06 | Property-resolution state | not_started | Required |
 | M07 | Grounded answer orchestration | not_started | Required |
 | M08 | Safe prospect capture | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M05 Knowledge-base ingestion and retrieval, pending ADR.
+**Next milestone:** M06 Property-resolution state, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -152,11 +152,11 @@
 
 ### M05 Knowledge-Base Ingestion And Retrieval
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Add KB source content and retrieval for policies, FAQs, lease terms, and property descriptions.
 - **Why now:** The assistant needs non-database grounding before full answer orchestration.
 - **Dependencies:** M01, M02.
-- **ADR required:** Yes.
+- **ADR required:** Yes: [0005 Knowledge Base Ingestion And Retrieval](../decisions/0005-knowledge-base-ingestion-and-retrieval.md), Accepted.
 - **Decisions to resolve:** Markdown/JSON source, keyword vs embeddings, citation/source format, indexing step.
 - **Scope:** KB content, ingestion/indexing, retrieval interface, tests.
 - **Non-scope:** Agent response generation, database writes, voice.
@@ -164,9 +164,9 @@
 - **Implementation tasks:** Create/import KB docs, implement retrieval, return snippets with source IDs.
 - **Automated tests:** Known FAQ retrieval, property policy retrieval, unknown query behavior.
 - **Manual verification:** Query sample KB entries.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** Retrieval gives relevant source snippets and supports graceful unknowns.
-- **Expected demo evidence:** Test output for FAQ and policy queries.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** Retrieval gives relevant source snippets and supports graceful unknowns. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Test output for FAQ and policy queries: 33 tests passed, including 6 knowledge-base tests.
 - **Rollback/recovery:** Rebuild generated index from source docs.
 - **Documentation updates:** Architecture, status, README data notes.
 - **Likely risks:** Conflicting DB/KB facts, overcomplex embeddings, missing source attribution.

@@ -49,3 +49,4 @@ Each ADR should link to:
 | [0002](0002-configuration-and-provider-interfaces.md) | Configuration And Provider Interfaces | Accepted | M02 | Defines settings approach, provider protocols, and deterministic fakes. |
 | [0003](0003-property-prospect-persistence-and-seed-data.md) | Property Prospect Persistence And Seed Data | Accepted | M03 | Selects local SQLite persistence, migrations, seed data, and interest idempotency approach. |
 | [0004](0004-database-query-tools.md) | Database Query Tools | Accepted | M04 | Defines model-safe read-only database tools, structured evidence, result limits, and conservative confidence metadata. |
+| [0005](0005-knowledge-base-ingestion-and-retrieval.md) | Knowledge Base Ingestion And Retrieval | Accepted | M05 | Defines Markdown KB source, deterministic lexical retrieval, source-attributed snippets, and explicit no-result behavior. |

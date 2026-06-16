@@ -43,6 +43,14 @@ Implemented M04 database query tools:
 - Responses include structured `EvidenceItem` records, result counts, enforced limits, and conservative match metadata.
 - The tool layer does not expose raw SQL and does not perform prospect writes.
 
+Implemented M05 knowledge-base retrieval:
+
+- Markdown knowledge-base source files live in `data/kb/`.
+- `leasing_voice_assistant.knowledge_base` parses Markdown documents into stable source sections.
+- `MarkdownKnowledgeRetriever` implements the `KnowledgeRetriever` protocol with deterministic lexical retrieval.
+- Retrieval responses return source IDs, titles, section headings, bounded snippets, scores, and metadata.
+- The knowledge base stays separate from database-owned unit facts and does not perform answer generation or writes.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -116,14 +124,14 @@ Database tools should expose narrow operations, not raw SQL to the model:
 
 ## Knowledge-Base Retrieval
 
-The KB should cover:
+The implemented KB covers:
 
 - Property factsheets.
 - General leasing FAQ.
 - Application process.
 - Deposits, lease terms, pet rules, and other policies.
 
-The initial retrieval approach is an ADR decision. A lightweight structured or keyword retrieval system may be enough for one or two properties. Embeddings are an optional upgrade if simple retrieval is unreliable.
+ADR 0005 selects committed Markdown source files and deterministic lexical retrieval for the MVP. The retriever splits documents by headings and returns source-attributed snippets rather than final prose. Embeddings remain an optional future upgrade if evaluation shows that lexical retrieval misses important paraphrases.
 
 ## Property Resolution
 
@@ -233,8 +241,9 @@ Current local development commands:
 5. Run type checks with `uv run mypy`.
 6. Run the scaffold app with `uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --reload`.
 7. Initialize the local SQLite database with `PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
+8. Edit or review Markdown KB content under `data/kb/`.
 
-Later milestones will add KB setup, text conversation harness, browser voice or telephony adapter, and demo recording commands.
+Later milestones will add property resolution, text conversation harness, browser voice or telephony adapter, and demo recording commands.
 
 ## Deployment And Demo Flow
 

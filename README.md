@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M04 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, and read-only database query tools. Knowledge-base retrieval, agent behavior, prospect capture gating, and voice integration are planned later milestones.
+M05 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, and Markdown knowledge-base retrieval. Agent behavior, property resolution, prospect capture gating, and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M04 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M03 does not require provider credentials for setup, tests, linting, formatting, type checks, or local database initialization. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M05 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, or knowledge-base retrieval. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Local Database
 
@@ -28,6 +28,10 @@ PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import
 ```
 
 The generated database lives under `data/runtime/`, which is ignored by Git. Committed seed data lives in `data/seeds/properties.json`.
+
+## Knowledge Base
+
+Committed knowledge-base source documents live in `data/kb/`. The M05 retriever reads Markdown files from that directory, splits them by headings, and returns source-attributed snippets for policy, FAQ, lease-term, and property-description questions.
 
 ## Run
 
