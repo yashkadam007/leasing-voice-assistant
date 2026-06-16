@@ -8,7 +8,7 @@ Issue: M02 needs to introduce configuration loading and narrow provider interfac
 
 Decision: Add a small configuration module using Pydantic Settings (`pydantic-settings`) and define Python `Protocol`-based interfaces for provider and storage boundaries. M02 will include settings for environment selection and optional provider credentials, but missing external credentials must not break local tests. Provider interfaces will cover `ModelProvider`, `SpeechToTextProvider`, `TextToSpeechProvider`, `VoiceSessionProvider`, `PropertyRepository`, `ProspectRepository`, and `KnowledgeRetriever`. M02 will also add deterministic fake implementations for tests. Real provider adapters, persistence schema, agent prompts, database tools, voice transport, and business logic remain out of scope.
 
-Status: Proposed
+Status: Accepted
 
 Group: integration
 

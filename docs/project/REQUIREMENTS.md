@@ -149,4 +149,5 @@ These are optional and must not displace the MVP:
 ## Current Verification Evidence
 
 - M01 provides the first concrete evidence for NFR-03, NFR-04, NFR-06, NFR-07, DEL-02, and DEL-03: scaffold code, README commands, smoke tests, linting, formatting, type checking, ignored local env files, and documentation updates.
-- M01 does not yet satisfy voice, grounding, persistence, prospect capture, provider interface, or demo-recording requirements; those remain assigned to later milestones.
+- M02 provides concrete evidence for NFR-03, NFR-06, NFR-07, NFR-08, and DEL-05: Pydantic Settings with optional provider credentials, protocol-based provider boundaries, deterministic fakes, credential-redaction tests, and README credential documentation.
+- M02 does not yet satisfy voice, grounding, persistence, prospect capture, or demo-recording requirements; those remain assigned to later milestones.

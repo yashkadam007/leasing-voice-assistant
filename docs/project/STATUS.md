@@ -2,82 +2,80 @@
 
 ## Current State
 
-- **Project state:** M01 repository and quality-tooling foundation is complete. M02 is in ADR review.
+- **Project state:** M02 configuration and provider interfaces is complete.
 - **Date:** 2026-06-16
-- **Current branch:** Unknown; `/Users/yash/dev/projects/leasing-voice-assistant` is not currently a Git repository.
-- **Active milestone:** M02 Configuration and provider interfaces, `adr_pending`.
-- **Latest completed milestone:** M01 Repository and quality-tooling foundation.
-- **Next milestone:** M02 Configuration and provider interfaces, pending ADR acceptance.
-- **Active ADR:** `docs/decisions/0002-configuration-and-provider-interfaces.md` (Proposed).
+- **Current branch:** `main`.
+- **Active milestone:** None; M02 is complete.
+- **Latest completed milestone:** M02 Configuration and provider interfaces.
+- **Next milestone:** M03 Property/prospect persistence and seed data, pending ADR.
+- **Latest ADR:** `docs/decisions/0002-configuration-and-provider-interfaces.md` (Accepted).
 
 ## Completed Work
 
 - M00 documentation foundation completed.
+- M01 repository and quality-tooling foundation completed.
 - ADR 0001 accepted for Python/FastAPI, `uv`, `src/` layout, `pytest`, `ruff`, and `mypy`.
 - Added minimal Python/FastAPI scaffold under `src/leasing_voice_assistant/`.
-- Added `/health` smoke endpoint.
-- Added `tests/test_app.py` smoke tests.
-- Added `pyproject.toml`, `uv.lock`, `.python-version`, `.gitignore`, `.env.example`, and `README.md`.
-- Documented setup, run, test, lint, format-check, and type-check commands.
-- Confirmed no database, agent, knowledge-base, prospect-capture, provider, or voice behavior was implemented in M01.
+- Added `/health` smoke endpoint and tests.
+- ADR 0002 accepted for Pydantic Settings, protocol interfaces, and deterministic fakes.
+- Added `pydantic-settings` to project dependencies and updated `uv.lock`.
+- Added `leasing_voice_assistant.config.Settings` with `LVA_`-prefixed optional provider credential fields.
+- Added provider and storage protocols in `leasing_voice_assistant.interfaces`.
+- Added deterministic fake providers, repositories, and retriever in `leasing_voice_assistant.fakes`.
+- Added tests for settings loading, credential redaction, validation failure, and fake behavior.
+- Documented supported environment variables in `README.md` and `.env.example`.
+- Confirmed no database, agent orchestration, real provider adapter, knowledge-base implementation, prospect-capture behavior, or voice transport was implemented in M02.
 
 ## Work Currently In Progress
 
-- M02 ADR review. Implementation has not started and must wait for explicit user acceptance.
+- None. Stop before M03 until the user asks to proceed with the next ADR-first milestone.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `sed -n '1,240p' brief.md` | Passed; brief read successfully. |
-| `sed -n '1,240p' AGENTS.md` | Passed; project instructions read successfully. |
-| `sed -n '1,320p' docs/project/REQUIREMENTS.md` | Passed; requirements read successfully. |
-| `sed -n '1,360p' docs/project/ARCHITECTURE.md` | Passed; architecture read successfully. |
-| `sed -n '1,420p' docs/project/IMPLEMENTATION_PLAN.md` | Passed; implementation plan read successfully. |
-| `sed -n '1,360p' docs/project/STATUS.md` | Passed; status read successfully. |
+| `sed -n '1,260p' brief.md` | Passed; brief read successfully. |
+| `sed -n '1,220p' AGENTS.md` | Passed; project instructions read successfully. |
+| `sed -n '1,260p' docs/project/REQUIREMENTS.md` | Passed; requirements read successfully. |
+| `sed -n '1,280p' docs/project/ARCHITECTURE.md` | Passed; architecture read successfully. |
+| `sed -n '1,260p' docs/project/IMPLEMENTATION_PLAN.md` | Passed; implementation plan read successfully. |
+| `sed -n '1,240p' docs/project/STATUS.md` | Passed; previous status read successfully. |
 | `sed -n '1,260p' docs/decisions/README.md` | Passed; ADR index read successfully. |
-| `find docs/decisions -maxdepth 1 -type f \| sort` | Passed; confirmed no milestone ADR existed before ADR 0001 creation. |
-| `git status --short --branch` | Failed as expected; not a Git repository. |
-| `git diff --stat` | Failed as expected; not a Git repository. |
-| `find . -maxdepth 3 -type f \| sort` | Passed; file inventory inspected. |
-| `find . -maxdepth 3 -type d \| sort` | Passed; directory inventory inspected. |
-| `rg "FR-\|NFR-\|DEL-\|Next milestone\|ADR\|TBD\|in_progress\|not_started" AGENTS.md docs` | Passed; traceability and milestone references inspected. |
-| `wc -l brief.md AGENTS.md docs/project/REQUIREMENTS.md docs/project/ARCHITECTURE.md docs/project/IMPLEMENTATION_PLAN.md docs/project/STATUS.md docs/decisions/README.md docs/project/SESSION_RUNBOOK.md` | Passed; documentation file sizes inspected. |
-| `python3 --version` | Passed; local Python is `Python 3.14.5`. |
-| `uv --version` | Passed; local `uv` is `uv 0.11.19`. |
-| `uv sync --all-groups` | Initially failed because default uv cache path was outside the sandbox; succeeded after rerun with `UV_CACHE_DIR=.uv-cache` and approved network access. |
-| `uv run pytest` | Initially failed because tests could not import the `src/` package; passed after adding pytest `pythonpath = ["src"]`. Final result: 2 passed, 1 FastAPI/Starlette deprecation warning from `TestClient`. |
-| `uv run ruff check .` | Initially failed because Ruff scanned `.uv-cache`; passed after excluding `.uv-cache` and `.venv`. Final result: all checks passed. |
-| `uv run ruff format --check .` | Initially failed because Ruff scanned `.uv-cache` and source files needed formatting; passed after exclusions and formatting. Final result: 3 files already formatted. |
-| `uv run mypy` | Passed; no issues found in 3 source files. |
-| `uv run uvicorn leasing_voice_assistant.app:create_app --factory --host 127.0.0.1 --port 8000` | Failed; missing `--app-dir src`, revealing stale README command. |
-| `uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --host 127.0.0.1 --port 8000` | Import succeeded; sandboxed run could not bind to `127.0.0.1:8000`; approved rerun succeeded. |
-| `curl -s http://127.0.0.1:8000/health` | Sandboxed run failed to connect; approved rerun succeeded with `{"status":"ok","service":"leasing-voice-assistant"}`. |
+| `sed -n '1,240p' docs/decisions/0002-configuration-and-provider-interfaces.md` | Passed; ADR 0002 read successfully. |
+| `git status --short` | Passed; showed M02 working-tree changes. |
+| `git branch --show-current` | Passed; current branch is `main`. |
+| `UV_CACHE_DIR=.uv-cache uv sync --all-groups` | Passed after approved network access; installed `pydantic-settings==2.14.1`. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 11 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed after import sorting fix; all checks passed. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 8 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 8 source files. |
+| `git diff --stat` | Passed; reviewed tracked dependency changes. |
+| `rg -n "secret-\|API_KEY\|AUTH_TOKEN\|account\|token\|password\|BEGIN\|PRIVATE" ...` | Passed; found only config field names, docs, and test placeholder values. |
 
 ## Validation Results
 
 - Automated validation passed: tests, lint, format check, and type check.
-- Manual app smoke verification passed: `/health` returned `{"status":"ok","service":"leasing-voice-assistant"}`.
-- README run command was corrected after manual verification found the missing `--app-dir src`.
-- No secrets or real personal data were added.
+- Settings tests confirm local validation works without provider credentials.
+- Settings tests confirm secret-like values are redacted from `repr(settings)`.
+- Fake provider tests confirm deterministic model, STT, TTS, voice session, repository, prospect, and KB retriever behavior.
+- No real provider calls, credentials, database schema, knowledge-base retrieval implementation, agent prompts, or voice pipeline were added.
 
 ## Known Failures
 
-- `git status --short --branch` and `git diff --stat` fail until the assignment directory is initialized as a Git repository or moved into one.
-- `pytest` currently reports one third-party deprecation warning from FastAPI/Starlette `TestClient` under the resolved dependency set. It does not fail validation.
+- `uv` defaults to `/Users/yash/.cache/uv`, which is outside the sandbox. Use `UV_CACHE_DIR=.uv-cache` in this environment.
+- `pytest` reports one third-party deprecation warning from FastAPI/Starlette `TestClient` under the resolved dependency set. It does not fail validation.
 
 ## Blockers
 
-- M02 ADR is Proposed and not yet accepted.
+- None for M02.
 
 ## Unresolved Decisions
 
-- Whether to accept ADR 0002's proposed Pydantic Settings, protocol interfaces, and deterministic fake provider strategy.
+- M03 database/storage choice, schema, seed data format, and persistence setup.
 - Whether to use Strands Agents SDK.
 - Whether to prioritize Twilio or browser voice for the first working voice demo.
-- Database/storage choice.
 - Knowledge-base retrieval approach.
-- Model, STT, and TTS providers.
+- Real model, STT, and TTS providers.
 - Write confirmation and confidence policy.
 - Demo recording path.
 
@@ -87,11 +85,11 @@
 - Browser-based voice is acceptable if telephony credentials or trial setup block Twilio.
 - Seed data may need to be created because only `brief.md` is externally provided.
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
+- M02 provider protocols may be extended by later accepted ADRs when concrete behavior requires it.
 
 ## External Setup Still Required
 
-- Git repository initialization or confirmation of intended VCS location.
-- Model provider account and API key.
+- Model provider account and API key when a real model adapter is selected.
 - STT provider account and API key unless using browser/local transcription.
 - TTS provider account and API key unless using browser speech synthesis.
 - Twilio account, number, and public tunnel/deployment if real telephony is chosen.
@@ -99,36 +97,33 @@
 
 ## Files Changed In Current Milestone
 
-- `docs/decisions/0002-configuration-and-provider-interfaces.md`
-- `docs/decisions/README.md`
-- `docs/project/IMPLEMENTATION_PLAN.md`
-- `docs/project/STATUS.md`
-
-## Files Changed In Latest Completed Milestone
-
 - `.env.example`
-- `.gitignore`
-- `.python-version`
-- `AGENTS.md`
 - `README.md`
-- `docs/decisions/0001-repository-and-quality-tooling-foundation.md`
+- `docs/decisions/0002-configuration-and-provider-interfaces.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
+- `docs/project/REQUIREMENTS.md`
 - `docs/project/STATUS.md`
 - `pyproject.toml`
-- `src/leasing_voice_assistant/__init__.py`
-- `src/leasing_voice_assistant/app.py`
-- `tests/test_app.py`
+- `src/leasing_voice_assistant/config.py`
+- `src/leasing_voice_assistant/fakes.py`
+- `src/leasing_voice_assistant/interfaces.py`
+- `tests/test_config.py`
+- `tests/test_fakes.py`
 - `uv.lock`
+
+## Files Changed In Latest Completed Milestone
+
+- Same as current milestone; M02 is the latest completed milestone.
 
 ## Exact Next Action
 
-Review ADR 0002. If accepted explicitly, mark the ADR `Accepted`, mark M02 `ready` and then `in_progress`, implement only M02, run validation commands, update documentation, and stop before M03.
+Start M03 only after user instruction: create an ADR for property/prospect persistence and seed data, discuss trade-offs, wait for explicit acceptance, then implement only M03.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, accepted ADR 0001, and proposed ADR 0002. M00 and M01 are complete. M02 is `adr_pending`; implementation cannot begin until the user explicitly accepts ADR 0002.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, accepted ADR 0001, and accepted ADR 0002. M00, M01, and M02 are complete. M03 is the next milestone and must begin with an ADR.
 
 ## Progress Log
 
@@ -165,3 +160,12 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Created ADR 0002 from the supplied template and left it Proposed.
 - Updated the implementation plan, status, and ADR index.
 - Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-16 M02 Implementation
+
+- User explicitly accepted ADR 0002.
+- Marked ADR 0002 Accepted and implemented M02 only.
+- Added Pydantic Settings configuration, provider/storage protocols, deterministic fakes, and tests.
+- Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran setup, tests, lint, format check, type check, and a secret-oriented diff scan.
+- Marked M02 complete and set M03 as the next milestone.

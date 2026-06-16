@@ -46,4 +46,4 @@ Each ADR should link to:
 | ADR | Title | Status | Milestone | Notes |
 | --- | --- | --- | --- | --- |
 | [0001](0001-repository-and-quality-tooling-foundation.md) | Repository And Quality Tooling Foundation | Accepted | M01 | Defines application scaffold, dependency manager, source layout, and quality commands. |
-| [0002](0002-configuration-and-provider-interfaces.md) | Configuration And Provider Interfaces | Proposed | M02 | Defines proposed settings approach, provider protocols, and deterministic fakes. |
+| [0002](0002-configuration-and-provider-interfaces.md) | Configuration And Provider Interfaces | Accepted | M02 | Defines settings approach, provider protocols, and deterministic fakes. |

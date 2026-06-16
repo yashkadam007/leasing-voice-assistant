@@ -22,6 +22,12 @@ flowchart LR
   TTS --> Voice
 ```
 
+Implemented M02 boundaries:
+
+- Settings live in `leasing_voice_assistant.config` and read `LVA_`-prefixed environment variables from the environment or local `.env`.
+- Provider and storage contracts live in `leasing_voice_assistant.interfaces`.
+- Deterministic local fakes live in `leasing_voice_assistant.fakes` for tests and future offline integration work.
+
 Recommended MVP boundaries:
 
 - Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
@@ -253,7 +259,7 @@ The assistant should:
 
 ## Provider Boundaries And Interfaces
 
-Recommended interfaces:
+Implemented M02 interfaces:
 
 - `ModelProvider`: generate agent decisions/responses.
 - `SpeechToTextProvider`: convert audio to transcript with confidence metadata when available.

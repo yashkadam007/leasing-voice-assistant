@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M01 establishes the repository scaffold and quality tooling only. Database, knowledge-base retrieval, agent behavior, prospect capture, and voice integration are planned later milestones.
+M02 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, and deterministic fakes. Database, knowledge-base retrieval, agent behavior, prospect capture, and voice integration are planned later milestones.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M01 establishes the repository scaffold and quality tooling only. Database, know
 uv sync --all-groups
 ```
 
-M01 does not require provider credentials. Future milestones will document model, speech, telephony, and storage configuration as those integrations are added.
+M02 does not require provider credentials for setup, tests, linting, formatting, or type checks. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
 
 ## Run
 
@@ -38,4 +38,14 @@ uv run mypy
 
 ## Local Environment
 
-Use `.env` for local secrets when future milestones introduce credentials. `.env` files are ignored; `.env.example` is committed as a placeholder.
+Use `.env` for local secrets. `.env` files are ignored; `.env.example` documents supported variable names.
+
+Supported variables:
+
+- `LVA_ENVIRONMENT`: `local`, `test`, `development`, or `production`; defaults to `local`.
+- `LVA_MODEL_API_KEY`: optional model provider credential for future adapters.
+- `LVA_SPEECH_TO_TEXT_API_KEY`: optional STT provider credential for future adapters.
+- `LVA_TEXT_TO_SPEECH_API_KEY`: optional TTS provider credential for future adapters.
+- `LVA_TELEPHONY_ACCOUNT_SID`: optional telephony account identifier for future adapters.
+- `LVA_TELEPHONY_AUTH_TOKEN`: optional telephony auth token for future adapters.
+- `LVA_PROVIDER_TIMEOUT_SECONDS`: optional provider timeout; defaults to `10.0`.

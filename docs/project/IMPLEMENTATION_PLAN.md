@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | M00 | Documentation foundation | completed | Not required |
 | M01 | Repository and quality-tooling foundation | completed | [0001](../decisions/0001-repository-and-quality-tooling-foundation.md) |
-| M02 | Configuration and provider interfaces | adr_pending | [0002](../decisions/0002-configuration-and-provider-interfaces.md) |
+| M02 | Configuration and provider interfaces | completed | [0002](../decisions/0002-configuration-and-provider-interfaces.md) |
 | M03 | Property/prospect persistence and seed data | not_started | Required |
 | M04 | Database query tools | not_started | Required |
 | M05 | Knowledge-base ingestion and retrieval | not_started | Required |
@@ -21,7 +21,7 @@
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M02 Configuration and provider interfaces, pending ADR acceptance.
+**Next milestone:** M03 Property/prospect persistence and seed data, pending ADR.
 
 ## ADR-First Milestone Workflow
 
@@ -89,11 +89,11 @@
 
 ### M02 Configuration And Provider Interfaces
 
-- **Status:** adr_pending
+- **Status:** completed
 - **Goal:** Add configuration loading and small provider interfaces for model, STT, TTS, voice transport, storage, and KB retrieval.
 - **Why now:** Provider boundaries are needed before business logic and voice integration.
 - **Dependencies:** M01.
-- **ADR required:** Yes: [0002 Configuration And Provider Interfaces](../decisions/0002-configuration-and-provider-interfaces.md), Proposed.
+- **ADR required:** Yes: [0002 Configuration And Provider Interfaces](../decisions/0002-configuration-and-provider-interfaces.md), Accepted.
 - **Decisions to resolve:** Config library, env naming, fake provider strategy, interface boundaries.
 - **Scope:** Config validation, provider protocols/interfaces, deterministic fake implementations for tests.
 - **Non-scope:** Real provider adapters, database schema, agent prompts.
@@ -101,9 +101,9 @@
 - **Implementation tasks:** Define settings, validate missing secrets clearly, add fake providers, document env variables as TBD or optional.
 - **Automated tests:** Config success/failure tests; fake provider tests.
 - **Manual verification:** Run tests and inspect secret handling.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** External dependencies are explicit; tests do not need real credentials; provider APIs are small.
-- **Expected demo evidence:** Test output showing fake providers work.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv sync --all-groups`; `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** External dependencies are explicit; tests do not need real credentials; provider APIs are small. Completed with evidence in `docs/project/STATUS.md`.
+- **Expected demo evidence:** Test output showing fake providers work: 11 tests passed.
 - **Rollback/recovery:** Interfaces can be renamed before downstream milestones if ADR supersedes them.
 - **Documentation updates:** Architecture, status, README credential section, ADR index.
 - **Likely risks:** Over-abstracting or leaking provider-specific assumptions.
