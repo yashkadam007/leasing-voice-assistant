@@ -16,6 +16,7 @@
 | M09 | Text-based conversation harness | completed | [0009](../decisions/0009-text-based-conversation-harness.md) |
 | M10 | Voice pipeline | completed | [0010](../decisions/0010-voice-pipeline.md) |
 | M11 | Real call or browser voice integration | completed | [0011](../decisions/0011-real-call-twilio-integration.md) |
+| M11.1 | Streaming STT turn detection for Twilio | completed | [0012](../decisions/0012-streaming-stt-turn-detection-for-twilio.md) |
 | M12 | Integration and end-to-end tests | not_started | Required |
 | M13 | Evaluation scenarios | not_started | Required |
 | M14 | Observability and failure handling | not_started | Required |
@@ -297,12 +298,33 @@
 - **Documentation updates:** README, architecture, status.
 - **Likely risks:** Telephony credentials, trial limitations, public tunnel availability, latency, audio format issues, interruption race conditions.
 
+### M11.1 Streaming STT Turn Detection For Twilio
+
+- **Status:** completed
+- **Goal:** Make the Twilio call path conversational by using streaming speech-to-text endpointing to detect caller utterance completion.
+- **Why now:** Manual Twilio testing showed the current M11 adapter reaches the call and plays the greeting, but it waits for Twilio's `stop` event before invoking the voice pipeline. In Media Streams, `stop` means stream/call end, not user end-of-turn, so the assistant does not naturally respond after the caller speaks.
+- **Dependencies:** M10, M11.
+- **ADR required:** Yes: [0012 Streaming STT Turn Detection For Twilio](../decisions/0012-streaming-stt-turn-detection-for-twilio.md), Accepted.
+- **Decisions to resolve:** Deepgram live websocket contract, streaming STT provider boundary, transcript finalization semantics, how much of `VoicePipeline` to refactor for transcript-to-response reuse, fallback behavior if streaming STT fails, and whether to introduce a provider SDK or keep standard-library/websocket implementation.
+- **Scope:** Add a streaming STT session for Twilio calls; forward Twilio mu-law media frames to Deepgram live STT; accumulate finalized transcript segments; trigger one assistant turn on Deepgram endpointing such as `speech_final=true`; reuse the existing conversation session, grounded model rewrite, TTS, and prospect write gate; keep deterministic fake streaming coverage.
+- **Non-scope:** Full barge-in/cancelation hardening, browser voice UI, production call routing, durable call recording, CRM workflow, broad observability dashboards, or replacing the existing batch voice pipeline for non-Twilio use.
+- **Expected files:** Streaming STT interface or adapter, Deepgram live-stream adapter, Twilio transport updates, voice-pipeline helper refactor if needed, fake streaming STT tests, Twilio streaming turn tests, README and architecture updates.
+- **Implementation tasks:** Define the streaming transcript event contract; implement Deepgram live websocket connection using Twilio-compatible audio settings; route Twilio `media` frames to Deepgram; collect `is_final` transcript segments until endpointing marks the utterance complete; call the existing session/model/TTS response path; send mu-law TTS audio back to Twilio; handle provider errors with caller-safe fallback; document the design.
+- **Automated tests:** Mock Deepgram streaming messages for interim/final/speech-final behavior; verify one Twilio media stream turn triggers a response before Twilio `stop`; verify partial transcripts are not prematurely processed; verify malformed provider messages and provider failures degrade safely; verify caller metadata and write-gate behavior still flow through.
+- **Manual verification:** Place or receive a Twilio test call, speak a property question after the greeting, hear a response without ending the call, then complete a prospect-capture turn.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** Completed in code with deterministic offline coverage: Twilio media frames are forwarded to a streaming STT session, finalized transcript segments are accumulated until endpointing, assistant response generation runs before Twilio `stop`, existing grounded answers and the M08 write gate remain in use, malformed/provider-error cases fail safely, and docs explain why Twilio transport and Deepgram endpointing have separate responsibilities. Live call evidence remains final demo work.
+- **Expected demo evidence:** Twilio call test where the assistant answers at least one spoken property question after the greeting without call termination.
+- **Rollback/recovery:** Keep the M11 batch-buffer path or a fixed-window fallback only as an emergency diagnostic mode; document streaming-STT credential or provider blockers before considering browser fallback.
+- **Documentation updates:** README, architecture, status, requirements traceability, ADR index.
+- **Likely risks:** Websocket complexity, transcript segmentation bugs, latency tuning, provider audio-format mismatch, race conditions between caller speech and assistant playback.
+
 ### M12 Integration And End-To-End Tests
 
 - **Status:** not_started
 - **Goal:** Add integration tests covering complete answer and capture scenarios without real provider calls.
-- **Why now:** Core behavior should be regression-tested before final demo polish.
-- **Dependencies:** M09, M10, M11.
+- **Why now:** Core behavior should be regression-tested after the real-call transport has correct turn detection.
+- **Dependencies:** M09, M10, M11, M11.1.
 - **ADR required:** Yes.
 - **Decisions to resolve:** Test fixture strategy, transcript format, fake model determinism.
 - **Scope:** End-to-end text and fake-voice scenarios.

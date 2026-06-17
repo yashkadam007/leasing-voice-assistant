@@ -4,6 +4,7 @@ from leasing_voice_assistant.database_tools import (
     DatabaseQueryTools,
     EvidenceItem,
     GetUnitFactsRequest,
+    ListPropertiesRequest,
     ListUnitsRequest,
     SearchPropertiesRequest,
 )
@@ -69,6 +70,28 @@ def test_search_properties_empty_query_does_not_return_everything(tmp_path: Path
     assert result.match_status == "no_match"
     assert result.total_matches == 0
     assert result.candidates == ()
+
+
+def test_list_properties_returns_supported_properties_with_evidence(tmp_path: Path) -> None:
+    tools = create_tools(tmp_path)
+
+    result = tools.list_properties(ListPropertiesRequest())
+
+    assert result.total_properties == 2
+    assert result.returned_count == 2
+    assert [candidate.property.name for candidate in result.candidates] == [
+        "Cedar Park Townhomes",
+        "Lakeview Flats",
+    ]
+    assert (
+        EvidenceItem(
+            source="database.properties",
+            record_id="property-lakeview-flats",
+            field="name",
+            value="Lakeview Flats",
+        )
+        in result.candidates[1].evidence
+    )
 
 
 def test_list_units_returns_limited_structured_unit_facts(tmp_path: Path) -> None:

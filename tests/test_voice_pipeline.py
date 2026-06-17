@@ -19,7 +19,12 @@ from leasing_voice_assistant.persistence import (
     initialize_database,
 )
 from leasing_voice_assistant.prospect_capture import ProspectCaptureService
-from leasing_voice_assistant.voice_pipeline import AudioInput, VoicePipeline, VoiceTurnRequest
+from leasing_voice_assistant.voice_pipeline import (
+    AudioInput,
+    TranscriptVoiceTurnRequest,
+    VoicePipeline,
+    VoiceTurnRequest,
+)
 
 KB_DIR = Path("data/kb")
 
@@ -92,6 +97,29 @@ def test_voice_pipeline_transcribes_answers_with_grounded_model_text_and_synthes
     assert result.debug.session_result is not None
     assert result.debug.session_result.answer.route == "database"
     assert result.state.turn_number == 1
+
+
+def test_voice_pipeline_handles_pretranscribed_streaming_turn(tmp_path: Path) -> None:
+    pipeline = build_pipeline(tmp_path)
+
+    result = pipeline.handle_transcript_turn(
+        TranscriptVoiceTurnRequest(
+            session_id="session-1",
+            transcript=Transcript(
+                text="How much is the lake-facing unit at Lakeview Flats?",
+                confidence=0.94,
+                metadata=(("source", "streaming_stt"),),
+            ),
+            include_debug_trace=True,
+            stt_ms=42.0,
+        )
+    )
+
+    assert result.degradation == "none"
+    assert result.timing.stt_ms == 42.0
+    assert result.assistant_text == "For Lakeview Flats unit 2B, rent is $2,450 per month."
+    assert result.debug is not None
+    assert result.debug.session_result is not None
 
 
 def test_voice_pipeline_preserves_caller_metadata_and_low_confidence_write_gate(

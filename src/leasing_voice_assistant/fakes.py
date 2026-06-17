@@ -7,6 +7,7 @@ from leasing_voice_assistant.interfaces import (
     PropertyRecord,
     ProspectInterestRecord,
     ProspectRecord,
+    StreamingTranscriptEvent,
     SynthesizedSpeech,
     Transcript,
     UnitRecord,
@@ -48,6 +49,56 @@ class FakeSpeechToTextProvider:
         if self.fail:
             raise RuntimeError("fake STT failure")
         return self.transcript
+
+
+class FakeStreamingSpeechToTextSession:
+    def __init__(
+        self,
+        scripted_events: Sequence[Sequence[StreamingTranscriptEvent]],
+        *,
+        fail_on_audio: bool = False,
+    ) -> None:
+        self.scripted_events = [tuple(events) for events in scripted_events]
+        self.fail_on_audio = fail_on_audio
+        self.sent_audio: list[bytes] = []
+        self.closed = False
+
+    def send_audio(self, audio: bytes) -> Sequence[StreamingTranscriptEvent]:
+        self.sent_audio.append(audio)
+        if self.fail_on_audio:
+            raise RuntimeError("fake streaming STT failure")
+        if not self.scripted_events:
+            return ()
+        return self.scripted_events.pop(0)
+
+    def poll_events(self) -> Sequence[StreamingTranscriptEvent]:
+        if not self.scripted_events:
+            return ()
+        return self.scripted_events.pop(0)
+
+    def close(self) -> Sequence[StreamingTranscriptEvent]:
+        self.closed = True
+        return (StreamingTranscriptEvent(type="session_close"),)
+
+
+class FakeStreamingSpeechToTextProvider:
+    def __init__(
+        self,
+        scripted_events: Sequence[Sequence[StreamingTranscriptEvent]] = (),
+        *,
+        fail_on_audio: bool = False,
+    ) -> None:
+        self.scripted_events = tuple(tuple(events) for events in scripted_events)
+        self.fail_on_audio = fail_on_audio
+        self.sessions: list[FakeStreamingSpeechToTextSession] = []
+
+    def start_stream(self) -> FakeStreamingSpeechToTextSession:
+        session = FakeStreamingSpeechToTextSession(
+            self.scripted_events,
+            fail_on_audio=self.fail_on_audio,
+        )
+        self.sessions.append(session)
+        return session
 
 
 class FakeTextToSpeechProvider:
@@ -97,6 +148,9 @@ class FakePropertyRepository:
     ) -> None:
         self.properties = tuple(properties)
         self.units = tuple(units)
+
+    def list_properties(self) -> Sequence[PropertyRecord]:
+        return self.properties
 
     def search_properties(self, query: str) -> Sequence[PropertyRecord]:
         normalized_query = query.casefold()

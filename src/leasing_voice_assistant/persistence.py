@@ -146,6 +146,16 @@ class SQLitePropertyRepository:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self.connection = connection
 
+    def list_properties(self) -> Sequence[PropertyRecord]:
+        rows = self.connection.execute(
+            """
+            SELECT id, name, address, city
+            FROM properties
+            ORDER BY name
+            """
+        ).fetchall()
+        return tuple(_property_from_row(row) for row in rows)
+
     def search_properties(self, query: str) -> Sequence[PropertyRecord]:
         pattern = f"%{query.strip()}%"
         rows = self.connection.execute(

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     model_api_key: SecretStr | None = None
     speech_to_text_provider: SpeechToTextProviderName = "fake"
     speech_to_text_model: str = "nova-2"
+    speech_to_text_streaming_enabled: bool = True
+    speech_to_text_streaming_url: str = "wss://api.deepgram.com/v1/listen"
+    speech_to_text_language: str = "en-US"
+    speech_to_text_endpointing_ms: int = Field(default=300, gt=0)
     speech_to_text_api_key: SecretStr | None = None
     text_to_speech_provider: TextToSpeechProviderName = "fake"
     text_to_speech_model: str = "eleven_multilingual_v2"

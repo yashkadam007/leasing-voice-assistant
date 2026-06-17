@@ -90,6 +90,28 @@ def test_asks_for_property_when_database_fact_has_no_context(tmp_path: Path) -> 
     assert result.answer_text == "Which property should I check for that?"
 
 
+def test_broad_availability_lists_available_apartments(tmp_path: Path) -> None:
+    orchestrator = create_orchestrator(tmp_path)
+
+    result = orchestrator.answer_turn(
+        AnswerTurnRequest(user_text="What properties do you have available?")
+    )
+
+    assert result.route == "database"
+    assert result.fallback_reason == "none"
+    assert result.database_fields == ("availability",)
+    assert "Lakeview Flats" in result.answer_text
+    assert "unit 1A" in result.answer_text
+    assert "unit 2B" in result.answer_text
+    assert "Cedar Park Townhomes" in result.answer_text
+    assert "unit 3C" in result.answer_text
+    assert "Which property would you like to hear more about?" in result.answer_text
+    assert any(
+        evidence.record_id == "unit-lakeview-2b" and evidence.field == "monthly_rent"
+        for evidence in result.database_evidence
+    )
+
+
 def test_ambiguous_property_reference_asks_for_clarification(tmp_path: Path) -> None:
     orchestrator = create_orchestrator(tmp_path)
 

@@ -121,19 +121,19 @@ These are optional and must not displace the MVP:
 
 | Requirement | Milestone(s) | Verification Method |
 | --- | --- | --- |
-| FR-01 | M10, M11, M15 | Browser or call demo recording; voice integration test where possible. |
+| FR-01 | M10, M11, M11.1, M15 | Browser or call demo recording; voice integration test where possible. |
 | FR-02 | M03, M04, M07, M12 | Unit tests for DB tools; integration conversation scenarios. |
 | FR-03 | M05, M07, M12 | KB retrieval tests; grounded answer scenarios. |
 | FR-04 | M06, M07, M12 | Property-resolution unit tests; ambiguous-reference scenarios. |
 | FR-05 | M04, M05, M07, M13 | Explicit DB and KB no-match tests; unknown-question tests; eval scenarios for hallucination prevention. |
-| FR-06 | M08, M09, M11, M12 | Prospect capture tests; manual voice scenario. |
+| FR-06 | M08, M09, M11, M11.1, M12 | Prospect capture tests; manual voice scenario. |
 | FR-07 | M03, M08, M12 | Upsert tests using duplicate phone numbers. |
 | FR-08 | M03, M08, M12 | Interest logging and idempotency tests. |
 | FR-09 | M08, M12, M13 | Confirmation-gate tests for low confidence and garbled input. |
 | FR-10 | M04, M05, M07, M13 | DB tool tests; KB retriever tests; tool selection tests; eval trace review. |
-| FR-11 | M10, M11, M15 | Browser voice or telephony demo evidence. |
-| NFR-01 | M10, M11, M15 | Manual demo review; latency and voice notes. |
-| NFR-02 | M10, M14, M15 | Structured timing logs; manual demo review. |
+| FR-11 | M10, M11, M11.1, M15 | Browser voice or telephony demo evidence. |
+| NFR-01 | M10, M11, M11.1, M15 | Manual demo review; latency and voice notes. |
+| NFR-02 | M10, M11.1, M14, M15 | Structured timing logs; manual demo review. |
 | NFR-03 | M01-M15 | Code review; architecture docs; tests. |
 | NFR-04 | M01 | Lint and format commands run. |
 | NFR-05 | M15 | Clean-checkout verification. |
@@ -160,3 +160,4 @@ These are optional and must not displace the MVP:
 - M09 by itself did not satisfy voice, model-backed natural-language generation, browser/telephony integration, or demo-recording requirements; later milestones cover those surfaces.
 - M10 provides concrete evidence for FR-01, FR-06, FR-09, NFR-01, NFR-02, NFR-03, NFR-06, and NFR-08: bounded audio input, STT confidence propagation into the write gate, model-backed spoken reply composition constrained to grounded session evidence, TTS synthesis, provider degradation handling, fake-provider coverage, and credential-free voice-pipeline tests.
 - M11 provides concrete evidence for FR-01, FR-06, FR-11, NFR-03, NFR-06, NFR-07, NFR-08, and DEL-05: Twilio inbound voice webhook route, optional Twilio signature validation, Media Streams websocket route, TwiML generation, bounded media buffering, stale and malformed frame handling, caller metadata propagation into the existing voice pipeline and prospect write gate, Twilio-compatible mu-law response framing, ElevenLabs output-format configuration, offline Twilio transport tests, and README credential/setup documentation. Live demo recording remains assigned to M15.
+- M11.1 provides concrete evidence for FR-01, FR-06, FR-11, NFR-01, NFR-02, NFR-03, NFR-06, NFR-07, and NFR-08: streaming STT provider/session contracts, Deepgram live endpointing configuration for Twilio mu-law audio, transcript-to-response voice-pipeline reuse, Twilio media forwarding to streaming STT, endpoint-triggered assistant responses before Twilio `stop`, low-confidence streaming transcript propagation into the existing write gate, duplicate/empty/malformed/provider-error safeguards, and deterministic offline streaming tests.

@@ -1,6 +1,8 @@
+import asyncio
 import base64
 import hashlib
 import hmac
+import logging
 from typing import Any, TypedDict
 from urllib.parse import parse_qs
 
@@ -14,6 +16,7 @@ from leasing_voice_assistant.database_tools import DatabaseQueryTools
 from leasing_voice_assistant.fakes import (
     FakeModelProvider,
     FakeSpeechToTextProvider,
+    FakeStreamingSpeechToTextProvider,
     FakeTextToSpeechProvider,
 )
 from leasing_voice_assistant.knowledge_base import MarkdownKnowledgeRetriever
@@ -24,16 +27,20 @@ from leasing_voice_assistant.persistence import (
 )
 from leasing_voice_assistant.prospect_capture import ProspectCaptureService
 from leasing_voice_assistant.provider_adapters import (
+    DeepgramLiveStreamingSpeechToTextProvider,
     DeepgramSpeechToTextProvider,
     ElevenLabsTextToSpeechProvider,
     OpenAICompatibleModelProvider,
 )
 from leasing_voice_assistant.twilio_transport import (
     TwilioCallManager,
+    TwilioFrameResult,
     TwilioVoiceWebhook,
     build_twilio_voice_twiml,
 )
 from leasing_voice_assistant.voice_pipeline import VoicePipeline
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class HealthResponse(TypedDict):
@@ -69,6 +76,12 @@ async def twilio_voice(request: Request) -> Response:
     call_sid = form.get("CallSid", "")
     caller_phone = form.get("From")
     request.app.state.twilio_call_manager.start_call(call_sid, caller_phone=caller_phone)
+    logger.info(
+        "twilio_voice_webhook call=%s caller_present=%s public_base_url=%s",
+        _safe_id(call_sid),
+        bool(caller_phone),
+        settings.telephony_public_base_url or str(request.base_url),
+    )
     twiml = build_twilio_voice_twiml(
         TwilioVoiceWebhook(
             call_sid=call_sid,
@@ -81,21 +94,70 @@ async def twilio_voice(request: Request) -> Response:
 
 async def twilio_media(websocket: WebSocket) -> None:
     await websocket.accept()
+    logger.info("twilio_media_websocket accepted")
     manager: TwilioCallManager = websocket.app.state.twilio_call_manager
     try:
         while True:
-            message = await websocket.receive_json()
-            if not isinstance(message, dict):
+            try:
+                message = await asyncio.wait_for(websocket.receive_json(), timeout=0.05)
+            except TimeoutError:
+                await _send_twilio_results(
+                    websocket,
+                    manager.poll_streaming_events(),
+                    source="poll",
+                )
                 continue
-            result = manager.handle_event(message)
-            for outbound in result.outbound_messages:
-                await websocket.send_json(outbound)
+            if isinstance(message, dict):
+                result = manager.handle_event(message)
+                _log_twilio_result(message.get("event"), result)
+                await _send_twilio_results(websocket, (result,), source="event")
     except WebSocketDisconnect:
+        logger.info("twilio_media_disconnected")
         return
 
 
+async def _send_twilio_results(
+    websocket: WebSocket,
+    results: tuple[TwilioFrameResult, ...],
+    *,
+    source: str,
+) -> None:
+    for result in results:
+        _log_twilio_result(source, result)
+        for outbound in result.outbound_messages:
+            await websocket.send_json(outbound)
+            logger.info(
+                "twilio_outbound_sent event=%s stream=%s",
+                outbound.get("event"),
+                _safe_id(str(outbound.get("streamSid") or "")),
+            )
+
+
+def _log_twilio_result(event: object, result: TwilioFrameResult) -> None:
+    if result.status == "failed":
+        logger.warning(
+            "twilio_media_result source=%s status=%s reason=%s",
+            event,
+            result.status,
+            result.reason,
+        )
+        return
+    if result.status == "completed" or result.reason:
+        logger.info(
+            "twilio_media_result source=%s status=%s reason=%s outbound=%s degradation=%s",
+            event,
+            result.status,
+            result.reason,
+            len(result.outbound_messages),
+            result.degradation,
+        )
+
+
 def build_twilio_call_manager(settings: Settings) -> TwilioCallManager:
-    return TwilioCallManager(voice_pipeline=build_voice_pipeline(settings))
+    return TwilioCallManager(
+        voice_pipeline=build_voice_pipeline(settings),
+        streaming_speech_to_text=_streaming_speech_to_text_provider(settings),
+    )
 
 
 def build_voice_pipeline(settings: Settings) -> VoicePipeline:
@@ -136,6 +198,21 @@ def _speech_to_text_provider(settings: Settings) -> Any:
     return DeepgramSpeechToTextProvider(
         api_key=settings.speech_to_text_api_key,
         model=settings.speech_to_text_model,
+        timeout_seconds=settings.provider_timeout_seconds,
+    )
+
+
+def _streaming_speech_to_text_provider(settings: Settings) -> Any:
+    if not settings.speech_to_text_streaming_enabled:
+        return None
+    if settings.speech_to_text_provider == "fake":
+        return FakeStreamingSpeechToTextProvider()
+    return DeepgramLiveStreamingSpeechToTextProvider(
+        api_key=settings.speech_to_text_api_key,
+        model=settings.speech_to_text_model,
+        websocket_url=settings.speech_to_text_streaming_url,
+        language=settings.speech_to_text_language,
+        endpointing=settings.speech_to_text_endpointing_ms,
         timeout_seconds=settings.provider_timeout_seconds,
     )
 
@@ -188,6 +265,12 @@ def _twilio_signature(url: str, form: dict[str, str], auth_token: str) -> str:
     signed = url + "".join(f"{key}{form[key]}" for key in sorted(form))
     digest = hmac.new(auth_token.encode(), signed.encode(), hashlib.sha1).digest()
     return base64.b64encode(digest).decode("ascii")
+
+
+def _safe_id(value: str | None) -> str:
+    if not value:
+        return "missing"
+    return f"...{value[-6:]}" if len(value) > 6 else value
 
 
 app = create_app()

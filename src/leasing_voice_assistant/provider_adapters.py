@@ -5,6 +5,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Sequence
+from importlib import import_module
 from typing import Any, cast
 
 from pydantic import SecretStr
@@ -12,6 +13,7 @@ from pydantic import SecretStr
 from leasing_voice_assistant.interfaces import (
     ModelMessage,
     ModelResponse,
+    StreamingTranscriptEvent,
     SynthesizedSpeech,
     Transcript,
 )
@@ -103,6 +105,162 @@ class DeepgramSpeechToTextProvider:
         )
 
 
+class DeepgramLiveStreamingSpeechToTextProvider:
+    def __init__(
+        self,
+        *,
+        api_key: SecretStr | str | None,
+        model: str = "nova-2",
+        websocket_url: str = "wss://api.deepgram.com/v1/listen",
+        language: str = "en-US",
+        encoding: str = "mulaw",
+        sample_rate: int = 8000,
+        endpointing: int = 300,
+        interim_results: bool = True,
+        timeout_seconds: float = 10.0,
+    ) -> None:
+        self.api_key = _required_secret(api_key, "Deepgram API key")
+        self.model = model
+        self.websocket_url = websocket_url
+        self.language = language
+        self.encoding = encoding
+        self.sample_rate = sample_rate
+        self.endpointing = endpointing
+        self.interim_results = interim_results
+        self.timeout_seconds = timeout_seconds
+
+    def start_stream(self) -> DeepgramLiveStreamingSpeechToTextSession:
+        sync_client = import_module("websockets.sync.client")
+        connect = cast("Any", sync_client).connect
+        websocket = connect(
+            self._url(),
+            additional_headers={"Authorization": f"Token {self.api_key}"},
+            open_timeout=self.timeout_seconds,
+            close_timeout=self.timeout_seconds,
+        )
+        return DeepgramLiveStreamingSpeechToTextSession(websocket=websocket)
+
+    def _url(self) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "model": self.model,
+                "language": self.language,
+                "encoding": self.encoding,
+                "sample_rate": str(self.sample_rate),
+                "channels": "1",
+                "interim_results": str(self.interim_results).lower(),
+                "endpointing": str(self.endpointing),
+                "smart_format": "true",
+            }
+        )
+        return f"{self.websocket_url}?{query}"
+
+
+class DeepgramLiveStreamingSpeechToTextSession:
+    def __init__(self, *, websocket: Any) -> None:
+        self.websocket = websocket
+        self.closed = False
+
+    def send_audio(self, audio: bytes) -> Sequence[StreamingTranscriptEvent]:
+        self.websocket.send(audio)
+        return self._drain_events()
+
+    def poll_events(self) -> Sequence[StreamingTranscriptEvent]:
+        return self._drain_events()
+
+    def close(self) -> Sequence[StreamingTranscriptEvent]:
+        if self.closed:
+            return ()
+        self.closed = True
+        try:
+            self.websocket.send(json.dumps({"type": "CloseStream"}))
+            events = list(self._drain_events())
+        except Exception:
+            events = []
+        self.websocket.close()
+        events.append(StreamingTranscriptEvent(type="session_close"))
+        return tuple(events)
+
+    def _drain_events(self) -> tuple[StreamingTranscriptEvent, ...]:
+        events: list[StreamingTranscriptEvent] = []
+        while True:
+            try:
+                raw = self.websocket.recv(timeout=0)
+            except TimeoutError:
+                break
+            except Exception as error:
+                return (StreamingTranscriptEvent(type="provider_error", message=str(error)),)
+            event = parse_deepgram_streaming_message(raw)
+            if event is not None:
+                events.append(event)
+        return tuple(events)
+
+
+def parse_deepgram_streaming_message(raw: str | bytes) -> StreamingTranscriptEvent | None:
+    try:
+        data = json.loads(raw.decode() if isinstance(raw, bytes) else raw)
+    except json.JSONDecodeError:
+        return StreamingTranscriptEvent(type="provider_error", message="invalid_json")
+    if not isinstance(data, dict):
+        return StreamingTranscriptEvent(type="provider_error", message="non_object_json")
+    message_type = data.get("type")
+    if message_type == "CloseStream":
+        return StreamingTranscriptEvent(type="session_close")
+    if message_type not in {None, "Results"}:
+        return None
+
+    channel = data.get("channel")
+    if not isinstance(channel, dict):
+        if data.get("speech_final") is True:
+            return StreamingTranscriptEvent(
+                type="utterance_complete",
+                event_id=str(data.get("request_id") or data.get("channel_index") or ""),
+            )
+        return None
+    alternatives = channel.get("alternatives")
+    if not isinstance(alternatives, list) or not alternatives:
+        if data.get("speech_final") is True:
+            return StreamingTranscriptEvent(
+                type="utterance_complete",
+                event_id=str(data.get("request_id") or data.get("channel_index") or ""),
+            )
+        return None
+    alternative = alternatives[0]
+    if not isinstance(alternative, dict):
+        if data.get("speech_final") is True:
+            return StreamingTranscriptEvent(
+                type="utterance_complete",
+                event_id=str(data.get("request_id") or data.get("channel_index") or ""),
+            )
+        return None
+    transcript_text = alternative.get("transcript")
+    if not isinstance(transcript_text, str) or not transcript_text.strip():
+        if data.get("speech_final") is True:
+            return StreamingTranscriptEvent(
+                type="utterance_complete",
+                event_id=str(data.get("request_id") or data.get("channel_index") or ""),
+            )
+        return None
+    confidence_value = alternative.get("confidence")
+    confidence = float(confidence_value) if isinstance(confidence_value, int | float) else None
+    transcript = Transcript(
+        text=transcript_text.strip(),
+        confidence=confidence,
+        metadata=(("provider", "deepgram"),),
+    )
+    if data.get("speech_final") is True:
+        return StreamingTranscriptEvent(
+            type="utterance_complete",
+            transcript=transcript,
+            event_id=str(data.get("request_id") or ""),
+        )
+    return StreamingTranscriptEvent(
+        type="final_transcript" if data.get("is_final") is True else "interim_transcript",
+        transcript=transcript,
+        event_id=str(data.get("request_id") or ""),
+    )
+
+
 class ElevenLabsTextToSpeechProvider:
     def __init__(
         self,
@@ -139,7 +297,9 @@ class ElevenLabsTextToSpeechProvider:
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 audio = response.read()
         except urllib.error.URLError as error:
-            raise ProviderRequestError("ElevenLabs text-to-speech request failed") from error
+            raise ProviderRequestError(
+                _request_error_message("ElevenLabs text-to-speech", error)
+            ) from error
         return SynthesizedSpeech(
             audio=audio,
             content_type=_elevenlabs_content_type(self.output_format),
@@ -181,7 +341,7 @@ def _json_request(
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             body = response.read()
     except urllib.error.URLError as error:
-        raise ProviderRequestError("model provider request failed") from error
+        raise ProviderRequestError(_request_error_message("model provider", error)) from error
     return _decode_json_object(body)
 
 
@@ -206,7 +366,8 @@ def _binary_request(
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             response_body = response.read()
     except urllib.error.URLError as error:
-        raise ProviderRequestError("Deepgram speech-to-text request failed") from error
+        message = _request_error_message("Deepgram speech-to-text", error)
+        raise ProviderRequestError(message) from error
     return _decode_json_object(response_body)
 
 
@@ -218,6 +379,33 @@ def _decode_json_object(body: bytes) -> dict[str, object]:
     if not isinstance(data, dict):
         raise ProviderRequestError("provider returned non-object JSON response")
     return data
+
+
+def _request_error_message(label: str, error: urllib.error.URLError) -> str:
+    status = getattr(error, "code", None)
+    reason = getattr(error, "reason", None)
+    detail = _error_response_body(error)
+    pieces = [f"{label} request failed"]
+    if status is not None:
+        pieces.append(f"status={status}")
+    if reason:
+        pieces.append(f"reason={reason}")
+    if detail:
+        pieces.append(f"body={detail}")
+    return "; ".join(pieces)
+
+
+def _error_response_body(error: urllib.error.URLError) -> str | None:
+    read = getattr(error, "read", None)
+    if not callable(read):
+        return None
+    try:
+        body = read()
+    except Exception:
+        return None
+    if not isinstance(body, bytes) or not body:
+        return None
+    return " ".join(body.decode(errors="replace").split())[:500]
 
 
 def _elevenlabs_accept_header(output_format: str) -> str:

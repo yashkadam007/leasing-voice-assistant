@@ -41,6 +41,17 @@ class VoiceTurnRequest:
 
 
 @dataclass(frozen=True)
+class TranscriptVoiceTurnRequest:
+    session_id: str
+    transcript: Transcript
+    state: ConversationSessionState | None = None
+    caller_phone: str | None = None
+    voice: str | None = None
+    include_debug_trace: bool = False
+    stt_ms: float = 0.0
+
+
+@dataclass(frozen=True)
 class VoiceTiming:
     stt_ms: float
     session_ms: float
@@ -115,6 +126,27 @@ class VoicePipeline:
                 debug=VoiceDebug(session_result=None, stt_error=str(error)),
             )
 
+        return self.handle_transcript_turn(
+            TranscriptVoiceTurnRequest(
+                session_id=request.session_id,
+                transcript=transcript,
+                state=request.state,
+                caller_phone=request.caller_phone,
+                voice=request.voice,
+                include_debug_trace=request.include_debug_trace,
+                stt_ms=(time.perf_counter() - stt_started) * 1000,
+            ),
+            started=started,
+        )
+
+    def handle_transcript_turn(
+        self,
+        request: TranscriptVoiceTurnRequest,
+        *,
+        started: float | None = None,
+    ) -> VoiceTurnResult:
+        started = started or time.perf_counter()
+        transcript = request.transcript
         session_started = time.perf_counter()
         session_result = self.session_service.handle_turn(
             ConversationTurnRequest(
@@ -166,10 +198,11 @@ class VoicePipeline:
             state=session_result.state,
             timing=_timing(
                 started,
-                stt_started=stt_started,
+                stt_started=None,
                 session_started=session_started,
                 model_started=model_started,
                 tts_started=tts_started,
+                stt_ms=request.stt_ms,
             ),
             degradation=degradation,
             debug=VoiceDebug(
@@ -299,17 +332,18 @@ def _content_words(text: str) -> set[str]:
 def _timing(
     started: float,
     *,
-    stt_started: float,
+    stt_started: float | None,
     session_started: float | None,
     model_started: float | None,
     tts_started: float | None,
+    stt_ms: float | None = None,
 ) -> VoiceTiming:
     now = time.perf_counter()
     stt_end = session_started or now
     session_end = model_started or stt_end
     model_end = tts_started or session_end
     return VoiceTiming(
-        stt_ms=(stt_end - stt_started) * 1000,
+        stt_ms=stt_ms if stt_ms is not None else (stt_end - (stt_started or started)) * 1000,
         session_ms=(session_end - session_started) * 1000 if session_started else 0.0,
         model_ms=(model_end - model_started) * 1000 if model_started else 0.0,
         tts_ms=(now - tts_started) * 1000 if tts_started else 0.0,

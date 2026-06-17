@@ -8,6 +8,7 @@ from leasing_voice_assistant.database_tools import (
     DatabaseQueryTools,
     EvidenceItem,
     GetUnitFactsRequest,
+    ListPropertiesRequest,
     ListUnitsRequest,
     UnitFacts,
 )
@@ -123,6 +124,15 @@ class AnswerOrchestrator:
             )
 
         if database_fields:
+            if (
+                "availability" in database_fields
+                and resolution.property_id is None
+                and _is_broad_availability_question(user_text)
+            ):
+                return self._answer_broad_availability(
+                    resolution=resolution,
+                    fields=database_fields,
+                )
             database_result = self._answer_from_database(
                 user_text,
                 resolution=resolution,
@@ -235,6 +245,59 @@ class AnswerOrchestrator:
         )
         return list_result.units
 
+    def _answer_broad_availability(
+        self,
+        *,
+        resolution: PropertyResolutionState,
+        fields: tuple[DatabaseField, ...],
+    ) -> AnswerTurnResult:
+        property_result = self.database_tools.list_properties(ListPropertiesRequest())
+        property_summaries: list[str] = []
+        evidence: list[EvidenceItem] = []
+        for candidate in property_result.candidates:
+            list_result = self.database_tools.list_units(
+                ListUnitsRequest(property_id=candidate.property.id)
+            )
+            available_units = tuple(
+                unit_facts
+                for unit_facts in list_result.units
+                if unit_facts.unit.status == "available"
+            )
+            if not available_units:
+                continue
+            property_summaries.append(
+                f"{candidate.property.name}: {_available_unit_summary(available_units)}"
+            )
+            evidence.extend(candidate.evidence)
+            evidence.extend(
+                item
+                for unit_facts in available_units
+                for item in unit_facts.evidence
+                if item.field in {"label", "bedrooms", "monthly_rent", "available_from", "status"}
+            )
+
+        if not property_summaries:
+            return AnswerTurnResult(
+                answer_text="I don't see any available units in the property database right now.",
+                route="unknown",
+                resolution=resolution,
+                database_fields=fields,
+                database_evidence=tuple(evidence),
+                fallback_reason="missing_evidence",
+            )
+
+        return AnswerTurnResult(
+            answer_text=(
+                "I can help with these available apartments: "
+                + "; ".join(property_summaries)
+                + ". Which property would you like to hear more about?"
+            ),
+            route="database",
+            resolution=resolution,
+            database_fields=fields,
+            database_evidence=tuple(evidence),
+        )
+
 
 def _kb_result(
     resolution: PropertyResolutionState,
@@ -265,6 +328,25 @@ def _database_fields(text: str) -> tuple[DatabaseField, ...]:
 def _wants_knowledge(text: str) -> bool:
     tokens = set(_TOKEN_PATTERN.findall(text.casefold()))
     return bool(tokens & _KB_KEYWORDS)
+
+
+def _is_broad_availability_question(text: str) -> bool:
+    tokens = set(_TOKEN_PATTERN.findall(text.casefold()))
+    broad_terms = {"apartment", "apartments", "properties", "property", "units", "places"}
+    return bool(tokens & broad_terms)
+
+
+def _available_unit_summary(units: tuple[UnitFacts, ...]) -> str:
+    parts = []
+    for unit_facts in units:
+        unit = unit_facts.unit
+        bedroom_label = f"{unit.bedrooms}-bedroom"
+        availability = f"available {unit.available_from}" if unit.available_from else unit.status
+        parts.append(
+            f"unit {unit.label}, a {bedroom_label} at ${unit.monthly_rent:,} per month, "
+            f"{availability}"
+        )
+    return ", and ".join(parts)
 
 
 def _property_clarification(resolution: PropertyResolutionState) -> str:

@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M11 Twilio real-call transport implementation is complete with offline webhook and media-stream tests.
+- **Project state:** M11.1 streaming STT turn detection for Twilio is complete with deterministic offline coverage. Twilio media frames now use streaming STT endpointing, rather than Twilio `stop`, to trigger assistant responses.
 - **Date:** 2026-06-17
 - **Current branch:** `main`.
 - **Active milestone:** M12 Integration and end-to-end tests.
-- **Latest completed milestone:** M11 Real call or browser voice integration.
+- **Latest completed milestone:** M11.1 Streaming STT turn detection for Twilio.
 - **Next milestone:** M12 Integration and end-to-end tests.
-- **Latest ADR:** `docs/decisions/0011-real-call-twilio-integration.md` (Accepted).
+- **Latest ADR:** `docs/decisions/0012-streaming-stt-turn-detection-for-twilio.md` (Accepted).
 
 ## Completed Work
 
@@ -68,16 +68,24 @@
 - Extended the ElevenLabs adapter with output-format support so `ulaw_8000` can be used for Twilio Media Streams playback.
 - Added Twilio transport tests for TwiML shape, optional Twilio signature validation, caller metadata propagation, one media-stream turn through the voice pipeline, non-Twilio TTS fallback behavior, malformed/stale/empty media events, bounded buffers, and route-level Twilio webhook/websocket acceptance.
 - Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status for M11.
+- ADR 0012 accepted for Deepgram live streaming STT endpointing as the Twilio caller turn boundary.
+- Added streaming STT provider/session protocols and typed streaming transcript events.
+- Added `VoicePipeline.handle_transcript_turn` so streaming STT transcripts reuse the same conversation session, grounded model rewrite, TTS, and safe prospect write gate without a second batch STT pass.
+- Added deterministic fake streaming STT providers and a Deepgram live websocket adapter configured for Twilio-compatible 8 kHz mu-law audio, interim results, and endpointing.
+- Updated `TwilioCallManager` to forward Twilio `media` frames to streaming STT, accumulate final transcript segments, trigger assistant responses on utterance completion before Twilio `stop`, suppress duplicate endpoints, and retain the old stop-buffer path only when streaming STT is disabled.
+- Added streaming-STT settings for live websocket URL, language, endpointing, and enablement.
+- Added tests for Deepgram-style streaming event parsing, pretranscribed voice turns, endpoint-triggered Twilio responses, multi-segment utterances, ignored interim/empty transcripts, duplicate endpoint suppression, provider failures, low-confidence write gating, and route-level websocket acceptance.
+- Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status for M11.1.
 
 ## Work Currently In Progress
 
-- M12 has not started. Per the milestone workflow, do not begin M12 without a new user instruction and accepted ADR.
+- M12 ADR is not drafted yet. M12 should add broader integration and end-to-end tests now that the Twilio call path has endpoint-driven turn detection.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 77 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 90 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 29 files already formatted. |
 | `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 29 source files. |
@@ -98,8 +106,8 @@
 - Prospect-capture tests confirm missing identity blocks writes, ambiguous property context blocks writes, unclear intent requires confirmation, garbled or low-confidence transcript markers require confirmation, explicit confirmation writes pending interest, clear intent writes unit-level interest, caller-phone metadata supports existing-prospect upsert, duplicate interest writes remain idempotent, and changed target details invalidate pending confirmation.
 - Conversation-session tests confirm text session state preserves multi-turn property context, transcript entries are recorded, debug traces expose answer and capture decisions safely, complete text prospect capture writes unit-level interest, confirmation-required text flows can be completed, ambiguous property writes remain blocked, and the CLI builder uses real local repositories.
 - Voice-pipeline tests confirm fake audio input is transcribed, transcript confidence flows into the session write gate, model-backed voice text is synthesized when grounded, unsupported model facts are rejected in favor of the safe session reply, STT failure returns a caller-safe repeat prompt, model failure falls back to the safe session reply, and TTS failure returns assistant text with a degraded result.
-- Provider-adapter tests confirm real OpenAI-compatible, Deepgram, and ElevenLabs adapters fail clearly without required credentials and that the ElevenLabs adapter accepts the Twilio-oriented `ulaw_8000` output format.
-- Twilio transport tests confirm inbound webhook TwiML includes the media-stream websocket and caller metadata, optional Twilio signature validation rejects missing signatures and accepts valid signatures, media events buffer a bounded turn and call the voice pipeline, caller phone metadata is preserved, Twilio-compatible synthesized audio is returned as outbound media/mark events, non-Twilio TTS audio is not streamed incorrectly, malformed and stale frames are ignored, oversized buffers fail safely, and FastAPI Twilio routes accept mocked webhook/websocket traffic.
+- Provider-adapter tests confirm real OpenAI-compatible, Deepgram, and ElevenLabs adapters fail clearly without required credentials, the ElevenLabs adapter accepts the Twilio-oriented `ulaw_8000` output format, and Deepgram-style streaming final and endpointing messages parse into typed events.
+- Twilio transport tests confirm inbound webhook TwiML includes the media-stream websocket and caller metadata, optional Twilio signature validation rejects missing signatures and accepts valid signatures, media events are forwarded to streaming STT, finalized transcript segments trigger a voice-pipeline response before Twilio `stop`, delayed streaming endpoint events are picked up by polling, top-level Twilio `streamSid` values are accepted, caller phone metadata is preserved, Twilio-compatible synthesized audio is returned as outbound media/mark events, non-Twilio TTS audio is not streamed incorrectly, interim-only and empty transcripts are ignored, duplicate endpoints are suppressed, malformed and stale frames are ignored, oversized fallback buffers fail safely, streaming provider failures fail safely without writes, low-confidence streaming transcripts use the existing write gate, and FastAPI Twilio routes accept mocked webhook/websocket traffic.
 - Scripted CLI verification confirms a local text conversation can answer a grounded Lakeview Flats rent question and record Avery Lee's synthetic interest in unit 2B.
 - No real provider calls, credentials, embeddings, vector database, browser UI, persistent session storage, CRM workflow, schema migration, committed audio recordings, or real personal data were added.
 
@@ -108,14 +116,16 @@
 - `uv` defaults to `/Users/yash/.cache/uv`, which is outside the sandbox. Use `UV_CACHE_DIR=.uv-cache` in this environment.
 - Direct Python snippets for this `src/` layout need `PYTHONPATH=src` unless the project is installed as an editable package.
 - `pytest` reports one third-party deprecation warning from FastAPI/Starlette `TestClient` under the resolved dependency set. It does not fail validation.
+- Manual Twilio verification after M11.1 is still required for demo evidence: place a test call, speak after the greeting, confirm the assistant responds without call termination, and complete one prospect-capture exchange.
 
 ## Blockers
 
-- None for M11.
+- None for M11.1.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
+- ADR and scope for M12 integration and end-to-end tests.
 - Demo recording path.
 
 ## Assumptions
@@ -133,12 +143,34 @@
 ## External Setup Still Required
 
 - Model provider account and API key when the OpenAI-compatible model adapter is selected.
-- Deepgram account and API key when the Deepgram STT adapter is selected.
+- Deepgram account and API key when the Deepgram streaming STT adapter is selected.
 - ElevenLabs account, API key, and voice selection when the ElevenLabs TTS adapter is selected.
 - Twilio account, number, and public tunnel/deployment for real telephony verification.
 - Demo recording method.
 
 ## Files Changed In Current Milestone
+
+- `docs/decisions/0012-streaming-stt-turn-detection-for-twilio.md`
+- `docs/decisions/README.md`
+- `docs/project/ARCHITECTURE.md`
+- `docs/project/IMPLEMENTATION_PLAN.md`
+- `docs/project/REQUIREMENTS.md`
+- `docs/project/STATUS.md`
+- `README.md`
+- `.env.example`
+- `src/leasing_voice_assistant/app.py`
+- `src/leasing_voice_assistant/config.py`
+- `src/leasing_voice_assistant/fakes.py`
+- `src/leasing_voice_assistant/interfaces.py`
+- `src/leasing_voice_assistant/provider_adapters.py`
+- `src/leasing_voice_assistant/twilio_transport.py`
+- `src/leasing_voice_assistant/voice_pipeline.py`
+- `tests/test_config.py`
+- `tests/test_provider_adapters.py`
+- `tests/test_twilio_transport.py`
+- `tests/test_voice_pipeline.py`
+
+## Files Changed In Previous Completed Milestone
 
 - `docs/decisions/0011-real-call-twilio-integration.md`
 - `docs/decisions/README.md`
@@ -156,7 +188,7 @@
 - `tests/test_provider_adapters.py`
 - `tests/test_twilio_transport.py`
 
-## Files Changed In Previous Completed Milestone
+## Files Changed In Earlier Completed Milestone
 
 - `README.md`
 - `docs/decisions/0010-voice-pipeline.md`
@@ -177,11 +209,11 @@
 
 ## Exact Next Action
 
-Create the M12 ADR for integration and end-to-end tests before implementing M12.
+Draft the M12 ADR for integration and end-to-end tests before implementation.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0011. M00 through M11 are complete. M12 is the next milestone and needs an ADR before implementation.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0012. M00 through M11.1 are complete. M12 integration and end-to-end tests is the next milestone and needs an ADR before implementation.
 
 ## Progress Log
 
@@ -381,3 +413,35 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Added offline Twilio transport tests and updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status.
 - Ran tests, lint, format check, and type check.
 - Marked M11 complete and set M12 as the next milestone.
+
+### 2026-06-17 M11.1 Planning Adjustment
+
+- Manual Twilio call testing showed the app receives the call and plays the greeting, but the adapter does not process caller speech because it waits for Twilio `stop`.
+- Added M11.1 as the next milestone before M12 to implement Deepgram streaming STT endpointing for real conversational turn detection.
+- Deferred broad integration/E2E tests until after the Twilio call path can respond without call termination.
+
+### 2026-06-17 M11.1 ADR Review
+
+- Created ADR 0012 for streaming STT turn detection with Deepgram live endpointing and left it Proposed.
+- Updated the ADR index, implementation plan, and status handoff to point to ADR 0012.
+- Stopped before implementation pending explicit ADR acceptance.
+
+### 2026-06-17 M11.1 Implementation
+
+- User explicitly accepted ADR 0012.
+- Marked ADR 0012 Accepted and implemented M11.1 only.
+- Added streaming STT protocols, fake streaming providers, Deepgram live websocket event parsing/configuration, and transcript-to-response voice-pipeline reuse.
+- Updated Twilio media handling so endpointed streaming transcripts trigger assistant responses before Twilio `stop`; retained the stop-buffer path only when streaming STT is disabled.
+- Added deterministic tests for streaming event parsing, endpoint-triggered Twilio responses, low-confidence write gating, duplicate/empty/interim handling, provider failures, and route acceptance.
+- Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M11.1 complete and set M12 as the next milestone.
+
+### 2026-06-17 M11.1 Live-Call Turn Detection Fix
+
+- Investigated live Twilio/ngrok logs where the call opened `/twilio/media` but did not play an assistant response after caller speech.
+- Added periodic streaming-STT polling in the Twilio websocket loop so delayed Deepgram endpoint events can trigger outbound audio even when no new Twilio media frame arrives at that moment.
+- Accepted Twilio `streamSid` from either the `start` payload or the top-level event, matching real Media Streams payload variants.
+- Added transport result logging for completed and failed Twilio media events without logging caller transcripts or secrets.
+- Added regression tests for delayed endpoint polling and top-level `streamSid` handling.
+- Ran tests, lint, format check, and type check.

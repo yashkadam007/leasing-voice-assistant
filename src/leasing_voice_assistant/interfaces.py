@@ -5,6 +5,13 @@ from typing import Literal, Protocol
 MessageRole = Literal["system", "user", "assistant", "tool"]
 UnitStatus = Literal["available", "leased"]
 InterestStatus = Literal["new", "contacted"]
+StreamingTranscriptEventType = Literal[
+    "interim_transcript",
+    "final_transcript",
+    "utterance_complete",
+    "provider_error",
+    "session_close",
+]
 
 
 @dataclass(frozen=True)
@@ -24,6 +31,14 @@ class Transcript:
     text: str
     confidence: float | None = None
     metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class StreamingTranscriptEvent:
+    type: StreamingTranscriptEventType
+    transcript: Transcript | None = None
+    message: str | None = None
+    event_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +118,22 @@ class SpeechToTextProvider(Protocol):
         """Convert audio bytes into a transcript."""
 
 
+class StreamingSpeechToTextSession(Protocol):
+    def send_audio(self, audio: bytes) -> Sequence[StreamingTranscriptEvent]:
+        """Send audio bytes and return transcript events currently available."""
+
+    def poll_events(self) -> Sequence[StreamingTranscriptEvent]:
+        """Return transcript events that arrived since the last send or poll."""
+
+    def close(self) -> Sequence[StreamingTranscriptEvent]:
+        """Close the streaming STT session and return any final events."""
+
+
+class StreamingSpeechToTextProvider(Protocol):
+    def start_stream(self) -> StreamingSpeechToTextSession:
+        """Start one streaming speech-to-text session."""
+
+
 class TextToSpeechProvider(Protocol):
     def synthesize(self, text: str, *, voice: str | None = None) -> SynthesizedSpeech:
         """Convert text into spoken audio bytes."""
@@ -120,6 +151,9 @@ class VoiceSessionProvider(Protocol):
 
 
 class PropertyRepository(Protocol):
+    def list_properties(self) -> Sequence[PropertyRecord]:
+        """List supported properties."""
+
     def search_properties(self, query: str) -> Sequence[PropertyRecord]:
         """Search properties by caller-supplied text."""
 

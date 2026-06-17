@@ -29,6 +29,11 @@ class SearchPropertiesRequest:
 
 
 @dataclass(frozen=True)
+class ListPropertiesRequest:
+    limit: int = DEFAULT_PROPERTY_SEARCH_LIMIT
+
+
+@dataclass(frozen=True)
 class PropertyCandidate:
     property: PropertyRecord
     confidence: MatchConfidence
@@ -42,6 +47,14 @@ class PropertySearchResult:
     total_matches: int
     returned_count: int
     match_status: MatchStatus
+    candidates: tuple[PropertyCandidate, ...]
+
+
+@dataclass(frozen=True)
+class PropertyListResult:
+    limit: int
+    total_properties: int
+    returned_count: int
     candidates: tuple[PropertyCandidate, ...]
 
 
@@ -81,6 +94,24 @@ class UnitFactsResult:
 class DatabaseQueryTools:
     def __init__(self, property_repository: PropertyRepository) -> None:
         self.property_repository = property_repository
+
+    def list_properties(self, request: ListPropertiesRequest) -> PropertyListResult:
+        limit = _normalize_limit(request.limit)
+        records = tuple(self.property_repository.list_properties())
+        candidates = tuple(
+            PropertyCandidate(
+                property=record,
+                confidence="exact",
+                evidence=_property_evidence(record),
+            )
+            for record in records[:limit]
+        )
+        return PropertyListResult(
+            limit=limit,
+            total_properties=len(records),
+            returned_count=len(candidates),
+            candidates=candidates,
+        )
 
     def search_properties(self, request: SearchPropertiesRequest) -> PropertySearchResult:
         query = request.query.strip()

@@ -30,6 +30,8 @@ def test_settings_read_prefixed_environment_values(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("LVA_MODEL_API_KEY", "secret-model-key")
     monkeypatch.setenv("LVA_SPEECH_TO_TEXT_PROVIDER", "deepgram")
     monkeypatch.setenv("LVA_SPEECH_TO_TEXT_API_KEY", "secret-stt-key")
+    monkeypatch.setenv("LVA_SPEECH_TO_TEXT_STREAMING_URL", "wss://stt.example.test/v1/listen")
+    monkeypatch.setenv("LVA_SPEECH_TO_TEXT_ENDPOINTING_MS", "250")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_PROVIDER", "elevenlabs")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_VOICE_ID", "voice-test")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT", "ulaw_8000")
@@ -45,6 +47,8 @@ def test_settings_read_prefixed_environment_values(monkeypatch: pytest.MonkeyPat
     assert settings.model_provider == "openai_compatible"
     assert settings.model_name == "gpt-test"
     assert settings.speech_to_text_provider == "deepgram"
+    assert settings.speech_to_text_streaming_url == "wss://stt.example.test/v1/listen"
+    assert settings.speech_to_text_endpointing_ms == 250
     assert settings.text_to_speech_provider == "elevenlabs"
     assert settings.text_to_speech_voice_id == "voice-test"
     assert settings.text_to_speech_output_format == "ulaw_8000"

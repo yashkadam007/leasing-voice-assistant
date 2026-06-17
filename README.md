@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M11 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, and Twilio inbound-call routes with offline media-stream coverage.
+M11.1 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, Twilio inbound-call routes, and Deepgram-style streaming STT turn detection with offline media-stream coverage.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M11 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M11 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio transport tests. Real inbound calls require Twilio plus model, STT, and TTS credentials.
+M11.1 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio/streaming-STT transport tests. Real inbound calls require Twilio plus model, Deepgram streaming STT, and TTS credentials.
 
 ## Local Database
 
@@ -63,10 +63,10 @@ Automated tests use deterministic fake providers and do not call external servic
 
 ## Twilio Call Integration
 
-M11 adds Twilio-facing FastAPI routes:
+M11/M11.1 add Twilio-facing FastAPI routes:
 
 - `POST /twilio/voice`: answers an inbound Twilio voice webhook with TwiML, says a short greeting, and connects a Twilio Media Stream websocket.
-- `WS /twilio/media`: accepts Twilio media-stream events, buffers bounded caller audio, calls `VoicePipeline.handle_turn`, preserves call session state, and streams assistant audio back when TTS returns Twilio-compatible mu-law audio.
+- `WS /twilio/media`: accepts Twilio media-stream events, forwards inbound mu-law audio to streaming STT, accumulates finalized transcript segments until endpointing marks the utterance complete, calls the shared transcript-to-response voice pipeline, preserves call session state, and streams assistant audio back when TTS returns Twilio-compatible mu-law audio.
 
 If `LVA_TELEPHONY_AUTH_TOKEN` is configured, `POST /twilio/voice` validates the `X-Twilio-Signature` header before returning TwiML.
 
@@ -84,6 +84,7 @@ LVA_MODEL_PROVIDER=openai_compatible
 LVA_MODEL_API_KEY=...
 LVA_SPEECH_TO_TEXT_PROVIDER=deepgram
 LVA_SPEECH_TO_TEXT_API_KEY=...
+LVA_SPEECH_TO_TEXT_STREAMING_ENABLED=true
 LVA_TEXT_TO_SPEECH_PROVIDER=elevenlabs
 LVA_TEXT_TO_SPEECH_API_KEY=...
 LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000
@@ -96,6 +97,8 @@ POST https://your-public-host.example/twilio/voice
 ```
 
 The websocket URL is generated as `wss://your-public-host.example/twilio/media`. Automated tests mock Twilio webhook and media events; CI does not require Twilio credentials, public tunnels, real phone numbers, or recordings.
+
+Streaming STT endpointing, not Twilio's stream `stop` event, is the primary caller turn boundary. The older stop-buffer path remains available only when streaming STT is disabled for diagnostics.
 
 ## Run
 
@@ -127,6 +130,10 @@ Supported variables:
 - `LVA_MODEL_API_KEY`: optional model provider credential.
 - `LVA_SPEECH_TO_TEXT_PROVIDER`: `fake` or `deepgram`; defaults to `fake`.
 - `LVA_SPEECH_TO_TEXT_MODEL`: Deepgram model name; defaults to `nova-2`.
+- `LVA_SPEECH_TO_TEXT_STREAMING_ENABLED`: enables streaming STT endpointing for Twilio; defaults to `true`.
+- `LVA_SPEECH_TO_TEXT_STREAMING_URL`: Deepgram live websocket URL; defaults to `wss://api.deepgram.com/v1/listen`.
+- `LVA_SPEECH_TO_TEXT_LANGUAGE`: Deepgram language code; defaults to `en-US`.
+- `LVA_SPEECH_TO_TEXT_ENDPOINTING_MS`: Deepgram endpointing value in milliseconds; defaults to `300`.
 - `LVA_SPEECH_TO_TEXT_API_KEY`: optional STT provider credential.
 - `LVA_TEXT_TO_SPEECH_PROVIDER`: `fake` or `elevenlabs`; defaults to `fake`.
 - `LVA_TEXT_TO_SPEECH_MODEL`: ElevenLabs model name; defaults to `eleven_multilingual_v2`.

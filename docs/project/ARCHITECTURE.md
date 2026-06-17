@@ -109,6 +109,16 @@ Implemented M11 Twilio call transport:
 - Automated tests mock Twilio webhook/media events and provider responses; they do not require live Twilio calls, public tunnels, provider credentials, real caller data, or recordings.
 - M11 does not introduce browser microphone UI, admin UI, production call routing, durable call recording storage, committed recordings, or full barge-in hardening.
 
+Implemented M11.1 streaming STT turn detection:
+
+- `leasing_voice_assistant.interfaces` defines typed streaming transcript events and a streaming STT session/provider boundary.
+- `leasing_voice_assistant.provider_adapters` includes a Deepgram live websocket adapter configured for Twilio-compatible 8 kHz mu-law audio, interim results, and endpointing.
+- `leasing_voice_assistant.fakes` includes deterministic fake streaming STT sessions for offline tests.
+- `VoicePipeline.handle_transcript_turn` reuses the existing conversation session, grounded model rewrite, TTS, and safe write gate for transcripts already finalized by streaming STT.
+- `TwilioCallManager` forwards inbound Twilio `media` payloads to streaming STT, accumulates final transcript segments, triggers one assistant turn on utterance completion, and keeps the old `stop`-buffer path only when streaming STT is disabled for diagnostics.
+- Automated tests cover Deepgram-style final and endpoint messages, multi-segment utterances, ignored interim/empty transcripts, duplicate endpoint suppression, provider failures, low-confidence write gating, and route-level Twilio websocket acceptance.
+- M11.1 does not introduce full barge-in/cancelation hardening, browser microphone UI, production call routing, durable call recording storage, committed recordings, or real provider calls in automated tests.
+
 Recommended MVP boundaries:
 
 - Voice adapter: Twilio inbound call is implemented first; browser voice remains a fallback only if a later ADR supersedes that path.
@@ -119,7 +129,15 @@ Recommended MVP boundaries:
 
 ## Voice And Audio Pipeline
 
-The implemented backend voice path is transport-neutral below the adapter. The Twilio transport collects one buffered caller utterance from Media Streams, calls `VoicePipeline.handle_turn`, then streams `VoiceTurnResult.speech` back when synthesis returns mu-law audio. If TTS is degraded or returns a non-Twilio audio format, the adapter keeps the caller-safe `assistant_text` in the turn result but does not invent a second playback path.
+The implemented backend voice path is transport-neutral below the adapter. For Twilio calls, M11.1 uses streaming STT endpointing rather than Twilio stream lifecycle events to decide when a caller utterance is complete.
+
+The M11.1 path keeps Twilio as the audio transport and uses Deepgram live streaming STT as the turn detector:
+
+```text
+Twilio media frames -> Deepgram live STT -> finalized transcript segments -> speech_final -> session/model/TTS -> Twilio media
+```
+
+Deepgram endpointing owns the speech boundary; the conversation session owns grounding and writes; Twilio owns call control and audio transport. If TTS is degraded or returns a non-Twilio audio format, the adapter keeps the caller-safe `assistant_text` in the turn result but does not invent a second playback path.
 
 Browser voice remains a possible fallback if Twilio credentials, trial numbers, public tunneling, or latency constraints block final demo evidence, but ADR 0011 selects Twilio as the M11 implementation path.
 
@@ -320,7 +338,7 @@ The MVP supports a Twilio call demo path. Required setup:
 - Public HTTPS tunnel or deployment.
 - `POST /twilio/voice` configured as the number's inbound voice webhook.
 - `LVA_TELEPHONY_PUBLIC_BASE_URL` set to the public base URL so the app can generate the `wss://.../twilio/media` stream URL.
-- Model, STT, and TTS provider credentials; for ElevenLabs playback through Twilio Media Streams, set `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000`.
+- Model, Deepgram streaming STT, and TTS provider credentials; for ElevenLabs playback through Twilio Media Streams, set `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000`.
 - Demo recording method remains final M15 work.
 
 ## Security And Privacy
