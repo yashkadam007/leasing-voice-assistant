@@ -58,14 +58,10 @@ Use this ADR-first milestone workflow:
 7. Wait for explicit user acceptance of the ADR.
 8. Mark the ADR `Accepted` and the milestone `ready`.
 9. Implement only that milestone.
-10. Add or update tests.
-11. Run all milestone validation commands.
-12. Fix failures before declaring completion.
-13. Review the diff for scope creep, security issues, and regressions.
-14. Update the plan, status, architecture, requirements traceability, ADR index, and README where applicable.
-15. Mark the milestone completed only when every acceptance criterion is evidenced.
-16. Stop and provide a concise completion report.
-17. Do not start the next milestone without a new user instruction.
+10. For development/debugging passes, keep edits focused on the requested code path unless the user explicitly asks for tests, docs, or milestone completion work.
+11. For milestone completion passes, add/update tests, run validation commands, fix failures, review the diff, update project docs, and mark completion only when every acceptance criterion is evidenced.
+12. Stop and provide a concise completion report.
+13. Do not start the next milestone without a new user instruction.
 
 Work on only one implementation milestone at a time. After completing a milestone, stop and wait for the user.
 
@@ -86,9 +82,9 @@ Replace `TBD` only when the corresponding tooling exists in the repository.
 
 - Optimize for a demonstrable MVP, not breadth.
 - Keep provider integrations behind testable interfaces.
-- Prefer deterministic tests for property resolution, tool selection, prospect capture, and write safety.
-- Mock telephony, speech, and model providers in automated tests.
-- Add integration tests before relying on a manual voice demo.
+- Prefer deterministic tests for property resolution, tool selection, prospect capture, and write safety when the user asks for test coverage or milestone completion.
+- Mock telephony, speech, and model providers in automated tests when tests are in scope.
+- During live debugging, prioritize the smallest useful code or logging change and avoid adding tests unless requested.
 - Use structured logging for call/session events once implementation begins.
 - Do not fabricate commands, results, repository state, provider behavior, or validation.
 
@@ -108,7 +104,7 @@ Do not add a full CRM, authentication, admin UI, broad property catalog, unrelat
 
 ## Documentation Updates
 
-Update `docs/project/STATUS.md` after every meaningful implementation session. When a milestone changes behavior, also update the implementation plan, architecture, requirements traceability, ADR index, and README where applicable.
+Update project docs when the user asks for documentation work or when marking a milestone complete. During focused debugging/development, do not update docs unless the change itself is documentation-related or the user requests it.
 
 ## Milestone Definition Of Done
 
@@ -121,6 +117,8 @@ A milestone is done only when:
 - Known failures and risks are documented.
 - `docs/project/STATUS.md` and relevant project docs are updated.
 - The diff has been reviewed for secrets, scope creep, and regressions.
+
+These definition-of-done requirements apply when explicitly completing a milestone, not to every focused debugging or development pass.
 
 ## Context Resumption
 
