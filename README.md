@@ -1,112 +1,150 @@
 # Leasing Voice Assistant
 
-Focused MVP voice AI assistant for property leasing. The assistant will answer grounded property questions and safely register prospect interest after confirmation.
+A focused MVP voice AI assistant for property leasing. A caller can ask about a
+property, get answers grounded in local property data and knowledge-base
+documents, and register interest only after the backend has enough confidence to
+write the correct prospect record.
 
-## Status
+The application is built with Python, FastAPI, SQLite, and `uv`. The live-call
+path uses Twilio Media Streams, Deepgram streaming STT, an OpenAI-compatible chat
+model, and Deepgram TTS. Tests run entirely offline with deterministic fakes.
 
-M11.1 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, Twilio inbound-call routes, Deepgram-style streaming STT turn detection, and Deepgram raw mu-law TTS playback wiring with offline media-stream coverage.
+## What Works
+
+- Local SQLite persistence for properties, units, prospects, and interests.
+- Seed data for Lakeview Flats and Cedar Park Townhomes.
+- Markdown knowledge-base retrieval for leasing FAQs and property descriptions.
+- Deterministic property and unit resolution across conversation turns.
+- Backend-gated prospect capture with phone-based prospect upsert.
+- Model-driven read-tool orchestration for natural responses from database and
+  knowledge-base evidence.
+- A local text conversation harness for debugging the same session flow.
+- FastAPI health and Twilio webhook/websocket routes.
+- Twilio streaming STT turn detection and raw mu-law TTS playback support.
+- Offline test coverage for providers, session state, database tools, KB
+  retrieval, prospect writes, voice pipeline, and Twilio transport.
+
+## Current Limits
+
+- Live Twilio verification and demo recording are still pending.
+- Browser voice is not implemented; Twilio is the selected voice path.
+- Session state is in memory.
+- Real provider calls require local credentials.
+- This is not a CRM, admin UI, authentication system, or broad property catalog.
 
 ## Requirements
 
-- Python 3.12 or newer
+- Python 3.12+
 - `uv`
+- Optional for real calls: Twilio account and number, Deepgram API key,
+  OpenAI-compatible model API key, and a public HTTPS tunnel or deployment.
 
-## Setup
+## Quick Start
+
+Install dependencies:
 
 ```bash
 uv sync --all-groups
 ```
 
-M11.1 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio/streaming-STT/TTS transport tests. Real inbound calls require Twilio plus model and Deepgram credentials.
-
-## Local Database
-
-Initialize or refresh the local SQLite database with migrations and synthetic seed data:
+Initialize the local SQLite database:
 
 ```bash
 PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"
 ```
 
-The generated database lives under `data/runtime/`, which is ignored by Git. Committed seed data lives in `data/seeds/properties.json`.
-
-## Knowledge Base
-
-Committed knowledge-base source documents live in `data/kb/`. The M05 retriever reads Markdown files from that directory, splits them by headings, and returns source-attributed snippets for policy, FAQ, lease-term, and property-description questions.
-
-## Property Resolution
-
-`leasing_voice_assistant.property_resolution.PropertyResolver` tracks property and optional unit context across text turns using deterministic database-tool evidence. It returns explicit resolution state for resolved, probable, ambiguous, and unresolved cases, and marks ambiguous or unresolved context as not write-ready.
-
-## Answer Orchestration
-
-`leasing_voice_assistant.answer_orchestration.AnswerOrchestrator` handles deterministic text turns. It resolves property context, routes structured property/unit questions to database tools, routes policy and FAQ questions to the Markdown knowledge retriever, returns grounded answer text, and exposes route, evidence, fallback reason, and updated resolution state for tests and future logs.
-
-## Prospect Capture
-
-`leasing_voice_assistant.prospect_capture.ProspectCaptureService` gates prospect writes. It requires write-ready property or unit resolution, plausible caller name and phone, and clear interest intent or explicit confirmation before calling the prospect repository. Blocked and confirmation-required outcomes are returned as structured results for future conversation harnesses.
-
-## Text Conversation Harness
-
-Run a local text conversation against the same session service later voice integrations will use:
-
-```bash
-PYTHONPATH=src uv run python -m leasing_voice_assistant.text_harness --debug
-```
-
-The harness initializes the local SQLite database, reads the Markdown knowledge base, preserves session state across turns, and can print safe debug traces for answer routing, evidence counts, property resolution, and prospect write-gate outcomes.
-
-## Voice Pipeline
-
-`leasing_voice_assistant.voice_pipeline.VoicePipeline` is the M10 transport-neutral audio path. It accepts bounded audio bytes and content type, transcribes speech through a `SpeechToTextProvider`, calls the same conversation session service used by the text harness, asks a `ModelProvider` to rewrite the safe grounded reply for spoken delivery, validates that model text does not introduce unsupported numbers or unrelated facts, and synthesizes speech through a `TextToSpeechProvider`.
-
-Automated tests use deterministic fake providers and do not call external services. Optional standard-library HTTP adapters live in `leasing_voice_assistant.provider_adapters` for OpenAI-compatible chat completions, Deepgram STT, Deepgram TTS, and ElevenLabs TTS; they fail clearly when selected without credentials.
-
-## Twilio Call Integration
-
-M11/M11.1 add Twilio-facing FastAPI routes:
-
-- `POST /twilio/voice`: answers an inbound Twilio voice webhook with TwiML, says a short greeting, and connects a Twilio Media Stream websocket.
-- `WS /twilio/media`: accepts Twilio media-stream events, forwards inbound mu-law audio to streaming STT, accumulates finalized transcript segments until endpointing marks the utterance complete, calls the shared transcript-to-response voice pipeline, preserves call session state, and streams assistant audio back when TTS returns Twilio-compatible mu-law audio.
-
-If `LVA_TELEPHONY_AUTH_TOKEN` is configured, `POST /twilio/voice` validates the `X-Twilio-Signature` header before returning TwiML.
-
-Run the app:
-
-```bash
-uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --host 127.0.0.1 --port 8000
-```
-
-For a real call, expose the app with a public HTTPS tunnel or deployment, then set:
-
-```bash
-LVA_TELEPHONY_PUBLIC_BASE_URL=https://your-public-host.example
-LVA_MODEL_PROVIDER=openai_compatible
-LVA_MODEL_API_KEY=...
-LVA_SPEECH_TO_TEXT_PROVIDER=deepgram
-LVA_SPEECH_TO_TEXT_API_KEY=...
-LVA_SPEECH_TO_TEXT_STREAMING_ENABLED=true
-LVA_TEXT_TO_SPEECH_PROVIDER=deepgram
-LVA_TEXT_TO_SPEECH_API_KEY=...
-LVA_DEEPGRAM_TEXT_TO_SPEECH_MODEL=aura-2-thalia-en
-```
-
-Configure the Twilio number's inbound voice webhook to:
-
-```text
-POST https://your-public-host.example/twilio/voice
-```
-
-The websocket URL is generated as `wss://your-public-host.example/twilio/media`. Automated tests mock Twilio webhook and media events; CI does not require Twilio credentials, public tunnels, real phone numbers, or recordings.
-
-Streaming STT endpointing, not Twilio's stream `stop` event, is the primary caller turn boundary. The older stop-buffer path remains available only when streaming STT is disabled for diagnostics.
-
-## Run
+Run the API:
 
 ```bash
 uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --reload
 ```
 
-Then open `http://127.0.0.1:8000/health`.
+Check the service:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Expected response:
+
+```json
+{"status":"ok","service":"leasing-voice-assistant"}
+```
+
+## Local Text Demo
+
+The text harness uses the same session service and write gate as the voice path,
+but avoids telephony and provider credentials.
+
+```bash
+PYTHONPATH=src uv run python -m leasing_voice_assistant.text_harness --debug
+```
+
+Try a short flow:
+
+```text
+How much is the lake-facing unit at Lakeview Flats?
+My name is Avery Lee, my phone is 555-123-4567, and I am interested in this.
+quit
+```
+
+The generated SQLite database lives in `data/runtime/` and is ignored by Git.
+
+## Real Call Setup
+
+Copy `.env.example` to `.env` and configure real providers:
+
+```bash
+LVA_MODEL_PROVIDER=openai_compatible
+LVA_MODEL_API_KEY=...
+LVA_MODEL_BASE_URL=https://api.openai.com/v1/chat/completions
+LVA_MODEL_NAME=gpt-4.1-mini
+
+LVA_SPEECH_TO_TEXT_PROVIDER=deepgram
+LVA_SPEECH_TO_TEXT_API_KEY=...
+LVA_SPEECH_TO_TEXT_STREAMING_ENABLED=true
+
+LVA_TEXT_TO_SPEECH_PROVIDER=deepgram
+LVA_TEXT_TO_SPEECH_API_KEY=...
+LVA_DEEPGRAM_TEXT_TO_SPEECH_MODEL=aura-2-thalia-en
+
+LVA_TELEPHONY_PUBLIC_BASE_URL=https://your-public-host.example
+LVA_TELEPHONY_ACCOUNT_SID=...
+LVA_TELEPHONY_AUTH_TOKEN=...
+LVA_TELEPHONY_INBOUND_NUMBER=...
+```
+
+Expose the FastAPI app over HTTPS, then configure the Twilio number's inbound
+voice webhook:
+
+```text
+POST https://your-public-host.example/twilio/voice
+```
+
+The app returns TwiML that connects Twilio to:
+
+```text
+wss://your-public-host.example/twilio/media
+```
+
+`LVA_TELEPHONY_AUTH_TOKEN` enables Twilio signature validation for the inbound
+voice webhook. Automated tests do not require Twilio credentials, public tunnels,
+real phone numbers, or recordings.
+
+## Configuration
+
+Local secrets belong in `.env`, which is ignored by Git. Supported variables are
+documented in `.env.example`.
+
+Defaults use fake providers where possible:
+
+- `LVA_MODEL_PROVIDER=fake`
+- `LVA_SPEECH_TO_TEXT_PROVIDER=fake`
+- `LVA_TEXT_TO_SPEECH_PROVIDER=fake`
+
+Use Deepgram TTS for Twilio playback. ADR 0013 selected Deepgram because it can
+return raw 8 kHz mu-law audio for Media Streams; ElevenLabs remains available for
+non-Twilio TTS experiments.
 
 ## Quality Checks
 
@@ -117,33 +155,43 @@ uv run ruff format --check .
 uv run mypy
 ```
 
-## Local Environment
+In restricted environments where `uv` cannot write to the default cache, prefix
+commands with:
 
-Use `.env` for local secrets. `.env` files are ignored; `.env.example` documents supported variable names.
+```bash
+UV_CACHE_DIR=.uv-cache
+```
 
-Supported variables:
+## Project Layout
 
-- `LVA_ENVIRONMENT`: `local`, `test`, `development`, or `production`; defaults to `local`.
-- `LVA_MODEL_PROVIDER`: `fake` or `openai_compatible`; defaults to `fake`.
-- `LVA_MODEL_NAME`: model name for the OpenAI-compatible adapter; defaults to `gpt-4.1-mini`.
-- `LVA_MODEL_BASE_URL`: chat-completions endpoint for the OpenAI-compatible adapter.
-- `LVA_MODEL_API_KEY`: optional model provider credential.
-- `LVA_SPEECH_TO_TEXT_PROVIDER`: `fake` or `deepgram`; defaults to `fake`.
-- `LVA_SPEECH_TO_TEXT_MODEL`: Deepgram model name; defaults to `nova-2`.
-- `LVA_SPEECH_TO_TEXT_STREAMING_ENABLED`: enables streaming STT endpointing for Twilio; defaults to `true`.
-- `LVA_SPEECH_TO_TEXT_STREAMING_URL`: Deepgram live websocket URL; defaults to `wss://api.deepgram.com/v1/listen`.
-- `LVA_SPEECH_TO_TEXT_LANGUAGE`: Deepgram language code; defaults to `en-US`.
-- `LVA_SPEECH_TO_TEXT_ENDPOINTING_MS`: Deepgram endpointing value in milliseconds; defaults to `300`.
-- `LVA_SPEECH_TO_TEXT_API_KEY`: optional STT provider credential.
-- `LVA_TEXT_TO_SPEECH_PROVIDER`: `fake`, `deepgram`, or `elevenlabs`; defaults to `fake`.
-- `LVA_DEEPGRAM_TEXT_TO_SPEECH_MODEL`: Deepgram Aura voice/model name when using `deepgram`; defaults to `aura-2-thalia-en`.
-- `LVA_DEEPGRAM_TEXT_TO_SPEECH_BASE_URL`: Deepgram TTS REST endpoint; defaults to `https://api.deepgram.com/v1/speak`.
-- `LVA_TEXT_TO_SPEECH_MODEL`: ElevenLabs model name when using `elevenlabs`; defaults to `eleven_multilingual_v2`.
-- `LVA_TEXT_TO_SPEECH_VOICE_ID`: ElevenLabs voice ID for synthesis when using `elevenlabs`.
-- `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT`: ElevenLabs output format when using `elevenlabs`; defaults to `mp3_44100_128`. ADR 0013 recommends Deepgram TTS for Twilio playback because ElevenLabs `ulaw_8000` may be plan-gated.
-- `LVA_TEXT_TO_SPEECH_API_KEY`: optional TTS provider credential.
-- `LVA_TELEPHONY_ACCOUNT_SID`: optional Twilio account identifier.
-- `LVA_TELEPHONY_AUTH_TOKEN`: optional Twilio auth token.
-- `LVA_TELEPHONY_PUBLIC_BASE_URL`: public HTTPS base URL used to generate Twilio websocket callback URLs.
-- `LVA_TELEPHONY_INBOUND_NUMBER`: optional Twilio inbound phone number documentation field.
-- `LVA_PROVIDER_TIMEOUT_SECONDS`: optional provider timeout; defaults to `10.0`.
+```text
+src/leasing_voice_assistant/   Application package
+tests/                         Offline automated tests
+data/seeds/                    Synthetic property seed data
+data/kb/                       Markdown knowledge-base documents
+data/migrations/               SQLite schema migrations
+docs/project/                  Requirements, architecture, status, runbook
+docs/decisions/                Architecture decision records
+```
+
+Start with these docs for project context:
+
+- `brief.md`
+- `docs/project/REQUIREMENTS.md`
+- `docs/project/ARCHITECTURE.md`
+- `docs/project/IMPLEMENTATION_PLAN.md`
+- `docs/project/STATUS.md`
+
+## Validation Status
+
+The latest recorded validation in `docs/project/STATUS.md` passed:
+
+- `UV_CACHE_DIR=.uv-cache uv run pytest`
+- `UV_CACHE_DIR=.uv-cache uv run ruff check .`
+- `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`
+- `UV_CACHE_DIR=.uv-cache uv run mypy`
+- Local database initialization
+- Scripted text harness flow
+
+Manual Twilio verification and the final demo recording remain open project
+tasks.
