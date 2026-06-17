@@ -4,7 +4,7 @@ Issue: Manual Twilio call testing showed that the assistant can receive caller a
 
 Decision: Use Deepgram Aura text-to-speech as the preferred real TTS provider for the Twilio call path. Configure Deepgram TTS to return `mulaw` audio with `container=none` and `sample_rate=8000`, so the response can be sent directly as Twilio Media Streams outbound media without MP3/WAV transcoding or file headers. Keep the existing fake TTS provider for deterministic tests. Keep the existing ElevenLabs adapter as a fallback provider option, but do not make it the default documented path for Twilio playback while `ulaw_8000` is blocked by account plan limits.
 
-Status: Proposed
+Status: Accepted
 
 Group: twilio-tts-provider
 
@@ -14,13 +14,13 @@ Constraints: The implementation must not send MP3, WAV, Opus, AAC, or header-bea
 
 Positions: Position 1: Use Deepgram Aura TTS with `encoding=mulaw`, `container=none`, and `sample_rate=8000`. This directly matches the Twilio media format, avoids transcoding, and reuses the existing Deepgram account setup already needed for streaming STT.
 
-Position 2: Keep ElevenLabs and upgrade to a plan that supports `ulaw_8000`. This is the smallest code change, but it creates a paid-plan dependency for the demo and already failed during manual testing.
+Position 2: Keep a cheaper ElevenLabs MP3 output and transcode to raw mu-law locally. This avoids changing providers, but it adds an FFmpeg or audio-conversion dependency, increases latency and deployment complexity, and still depends on ElevenLabs for every call turn.
 
-Position 3: Use Amazon Polly with `OutputFormat=mulaw` and `SampleRate=8000`. This is technically compatible and has a documented free tier, but it adds a second cloud account, AWS credentials, request signing, and operational setup during an already working Deepgram STT integration.
+Position 3: Keep ElevenLabs and upgrade to a plan that supports `ulaw_8000`. This is the smallest code change, but it creates a paid-plan dependency for the demo and already failed during manual testing.
 
-Position 4: Use Google Cloud Text-to-Speech with `MULAW`. This has a free character allowance for some voices, but documented MULAW output includes a WAV header, which conflicts with Twilio's warning not to include header bytes in media payloads unless we strip headers correctly.
+Position 4: Use Amazon Polly with `OutputFormat=mulaw` and `SampleRate=8000`. This is technically compatible and has a documented free tier, but it adds a second cloud account, AWS credentials, request signing, and operational setup during an already working Deepgram STT integration.
 
-Position 5: Keep a cheaper ElevenLabs MP3 output and transcode to raw mu-law locally. This avoids changing providers, but it adds an FFmpeg or audio-conversion dependency, increases latency and deployment complexity, and still depends on ElevenLabs for every call turn.
+Position 5: Use Google Cloud Text-to-Speech with `MULAW`. This has a free character allowance for some voices, but documented MULAW output includes a WAV header, which conflicts with Twilio's warning not to include header bytes in media payloads unless we strip headers correctly.
 
 Argument: Position 1 is recommended because the call path's failure is specifically an audio-format and provider-plan mismatch, not a conversation or STT failure. Twilio requires raw 8 kHz mu-law outbound media. Deepgram documents `mulaw` output with `container=none` and `sample_rate=8000`, including a note that `container=none` avoids telephony clicks or static caused by header bytes. That matches Twilio Media Streams more closely than MP3, WAV, or header-bearing mu-law responses. Deepgram is already part of the project for streaming STT endpointing, so using it for TTS reduces credential and account surface.
 

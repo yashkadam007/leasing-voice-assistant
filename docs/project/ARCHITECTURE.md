@@ -94,7 +94,7 @@ Implemented M10 voice pipeline:
 - The pipeline accepts bounded audio bytes, calls a `SpeechToTextProvider`, passes transcript text and confidence into the M09 conversation session service, asks a `ModelProvider` to rewrite only the safe grounded session reply for spoken delivery, and calls a `TextToSpeechProvider`.
 - Results include transcript text and confidence, assistant text, optional synthesized speech, updated session state, STT/session/model/TTS timing fields, degradation status, and safe debug details.
 - Model output is treated as phrasing only: unsupported numbers or text with no meaningful overlap with the safe reply/evidence are rejected and the session reply is used instead.
-- `leasing_voice_assistant.provider_adapters` contains optional standard-library HTTP adapters for OpenAI-compatible chat completions, Deepgram speech-to-text, and ElevenLabs text-to-speech. Constructors fail clearly when credentials are missing.
+- `leasing_voice_assistant.provider_adapters` contains optional standard-library HTTP adapters for OpenAI-compatible chat completions, Deepgram speech-to-text, Deepgram text-to-speech, and ElevenLabs text-to-speech. Constructors fail clearly when credentials are missing.
 - Deterministic fake STT/model/TTS providers cover CI tests, including provider failure and low-confidence transcript paths.
 - M10 does not introduce Twilio, browser microphone UI, websocket streaming, public tunneling, demo recording, persistent session storage, committed audio recordings, real personal data, or required live provider calls.
 
@@ -105,7 +105,7 @@ Implemented M11 Twilio call transport:
 - `POST /twilio/voice` validates `X-Twilio-Signature` when `LVA_TELEPHONY_AUTH_TOKEN` is configured.
 - The Twilio adapter reuses `VoicePipeline.handle_turn` and the M09 conversation session path; it does not create a separate telephony agent or bypass the M08 write gate.
 - Twilio caller metadata is propagated as caller phone input to prospect capture when present.
-- ElevenLabs TTS can be configured with `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000` so outbound synthesized audio is compatible with Twilio Media Streams.
+- ADR 0013 selects Deepgram TTS as the preferred Twilio playback adapter because it can return raw 8 kHz mu-law audio directly for Media Streams.
 - Automated tests mock Twilio webhook/media events and provider responses; they do not require live Twilio calls, public tunnels, provider credentials, real caller data, or recordings.
 - M11 does not introduce browser microphone UI, admin UI, production call routing, durable call recording storage, committed recordings, or full barge-in hardening.
 
@@ -138,6 +138,8 @@ Twilio media frames -> Deepgram live STT -> finalized transcript segments -> spe
 ```
 
 Deepgram endpointing owns the speech boundary; the conversation session owns grounding and writes; Twilio owns call control and audio transport. If TTS is degraded or returns a non-Twilio audio format, the adapter keeps the caller-safe `assistant_text` in the turn result but does not invent a second playback path.
+
+ADR 0013 selects Deepgram TTS for Twilio playback after manual testing found ElevenLabs `ulaw_8000` output was blocked by a provider plan error. The Deepgram TTS adapter requests `encoding=mulaw`, `container=none`, and `sample_rate=8000`; Twilio outbound media remains guarded so MP3, WAV, and other non-raw-mu-law bytes are not streamed back to callers.
 
 Browser voice remains a possible fallback if Twilio credentials, trial numbers, public tunneling, or latency constraints block final demo evidence, but ADR 0011 selects Twilio as the M11 implementation path.
 
@@ -338,7 +340,7 @@ The MVP supports a Twilio call demo path. Required setup:
 - Public HTTPS tunnel or deployment.
 - `POST /twilio/voice` configured as the number's inbound voice webhook.
 - `LVA_TELEPHONY_PUBLIC_BASE_URL` set to the public base URL so the app can generate the `wss://.../twilio/media` stream URL.
-- Model, Deepgram streaming STT, and TTS provider credentials; for ElevenLabs playback through Twilio Media Streams, set `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000`.
+- Model and Deepgram credentials for streaming STT and Twilio-compatible TTS playback.
 - Demo recording method remains final M15 work.
 
 ## Security And Privacy

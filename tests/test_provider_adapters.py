@@ -1,11 +1,17 @@
+import urllib.error
+import urllib.request
+from typing import Any, cast
+
 import pytest
 
 from leasing_voice_assistant.provider_adapters import (
     DeepgramLiveStreamingSpeechToTextProvider,
     DeepgramSpeechToTextProvider,
+    DeepgramTextToSpeechProvider,
     ElevenLabsTextToSpeechProvider,
     OpenAICompatibleModelProvider,
     ProviderConfigurationError,
+    ProviderRequestError,
     parse_deepgram_streaming_message,
 )
 
@@ -19,6 +25,8 @@ def test_real_provider_adapters_fail_clearly_without_credentials() -> None:
         DeepgramLiveStreamingSpeechToTextProvider(api_key=None)
     with pytest.raises(ProviderConfigurationError, match="ElevenLabs API key"):
         ElevenLabsTextToSpeechProvider(api_key=None)
+    with pytest.raises(ProviderConfigurationError, match="Deepgram API key"):
+        DeepgramTextToSpeechProvider(api_key=None)
 
 
 def test_elevenlabs_adapter_accepts_twilio_mulaw_output_format() -> None:
@@ -45,6 +53,67 @@ def test_deepgram_live_adapter_builds_twilio_mulaw_stream_url() -> None:
     assert "encoding=mulaw" in url
     assert "sample_rate=8000" in url
     assert "endpointing=250" in url
+
+
+def test_deepgram_tts_adapter_requests_raw_twilio_mulaw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"raw mulaw"
+
+    def fake_urlopen(request: object, *, timeout: float) -> Response:
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    provider = DeepgramTextToSpeechProvider(
+        api_key="secret",
+        model="aura-test",
+        base_url="https://deepgram.example/v1/speak",
+        timeout_seconds=3.0,
+    )
+
+    speech = provider.synthesize("Hello there.")
+    request = cast("urllib.request.Request", captured["request"])
+    url = request.full_url
+
+    assert speech.audio == b"raw mulaw"
+    assert speech.content_type == "audio/x-mulaw;rate=8000"
+    assert url.startswith("https://deepgram.example/v1/speak?")
+    assert "model=aura-test" in url
+    assert "encoding=mulaw" in url
+    assert "container=none" in url
+    assert "sample_rate=8000" in url
+    assert captured["timeout"] == 3.0
+
+
+def test_deepgram_tts_adapter_reports_http_error_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: object, *, timeout: float) -> object:
+        raise urllib.error.HTTPError(
+            url="https://deepgram.example/v1/speak",
+            code=402,
+            msg="Payment Required",
+            hdrs=cast("Any", {}),
+            fp=None,
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    provider = DeepgramTextToSpeechProvider(api_key="secret")
+
+    with pytest.raises(ProviderRequestError, match="Deepgram text-to-speech.*status=402"):
+        provider.synthesize("Hello there.")
 
 
 def test_parse_deepgram_streaming_final_and_speech_final_events() -> None:

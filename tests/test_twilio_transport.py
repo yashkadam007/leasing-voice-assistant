@@ -288,6 +288,16 @@ def test_twilio_media_does_not_stream_non_twilio_tts_audio(tmp_path: Path) -> No
     assert completed.outbound_messages == ()
 
 
+def test_twilio_media_streams_deepgram_mulaw_tts_audio(tmp_path: Path) -> None:
+    manager = build_manager(tmp_path, tts_content_type="audio/mulaw;rate=8000")
+    manager.handle_event({"event": "start", "start": {"callSid": "CA123", "streamSid": "MZ123"}})
+
+    completed = manager.handle_event(media_message("MZ123", b"caller audio"))
+
+    assert completed.status == "completed"
+    assert completed.outbound_messages[0]["event"] == "media"
+
+
 def test_twilio_media_ignores_malformed_stale_and_empty_events(tmp_path: Path) -> None:
     manager = build_manager(tmp_path)
     manager.handle_event({"event": "start", "start": {"callSid": "CA123", "streamSid": "MZ123"}})

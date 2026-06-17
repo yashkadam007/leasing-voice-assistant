@@ -499,13 +499,24 @@ def _outbound_messages(
     content_type = getattr(speech, "content_type", "")
     if not isinstance(audio, bytes):
         return ()
-    if content_type not in {"audio/x-mulaw", TWILIO_MULAW_CONTENT_TYPE, "audio/basic"}:
+    if not _is_twilio_mulaw_content_type(content_type):
         return ()
     payload = base64.b64encode(audio).decode("ascii")
     return (
         {"event": "media", "streamSid": stream_sid, "media": {"payload": payload}},
         {"event": "mark", "streamSid": stream_sid, "mark": {"name": "assistant-turn"}},
     )
+
+
+def _is_twilio_mulaw_content_type(content_type: object) -> bool:
+    if not isinstance(content_type, str):
+        return False
+    normalized = content_type.lower().replace(" ", "")
+    if normalized in {"audio/x-mulaw", "audio/basic"}:
+        return True
+    if normalized in {"audio/x-mulaw;rate=8000", "audio/mulaw;rate=8000"}:
+        return True
+    return normalized in {"audio/x-mulaw;sample_rate=8000", "audio/mulaw;sample_rate=8000"}
 
 
 def _object_field(message: dict[str, Any], key: str) -> dict[str, Any] | None:

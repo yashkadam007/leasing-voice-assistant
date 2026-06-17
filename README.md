@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M11.1 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, Twilio inbound-call routes, and Deepgram-style streaming STT turn detection with offline media-stream coverage.
+M11.1 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, Twilio inbound-call routes, Deepgram-style streaming STT turn detection, and Deepgram raw mu-law TTS playback wiring with offline media-stream coverage.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M11.1 establishes the repository scaffold, quality tooling, configuration loadin
 uv sync --all-groups
 ```
 
-M11.1 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio/streaming-STT transport tests. Real inbound calls require Twilio plus model, Deepgram streaming STT, and TTS credentials.
+M11.1 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio/streaming-STT/TTS transport tests. Real inbound calls require Twilio plus model and Deepgram credentials.
 
 ## Local Database
 
@@ -59,7 +59,7 @@ The harness initializes the local SQLite database, reads the Markdown knowledge 
 
 `leasing_voice_assistant.voice_pipeline.VoicePipeline` is the M10 transport-neutral audio path. It accepts bounded audio bytes and content type, transcribes speech through a `SpeechToTextProvider`, calls the same conversation session service used by the text harness, asks a `ModelProvider` to rewrite the safe grounded reply for spoken delivery, validates that model text does not introduce unsupported numbers or unrelated facts, and synthesizes speech through a `TextToSpeechProvider`.
 
-Automated tests use deterministic fake providers and do not call external services. Optional standard-library HTTP adapters live in `leasing_voice_assistant.provider_adapters` for OpenAI-compatible chat completions, Deepgram STT, and ElevenLabs TTS; they fail clearly when selected without credentials.
+Automated tests use deterministic fake providers and do not call external services. Optional standard-library HTTP adapters live in `leasing_voice_assistant.provider_adapters` for OpenAI-compatible chat completions, Deepgram STT, Deepgram TTS, and ElevenLabs TTS; they fail clearly when selected without credentials.
 
 ## Twilio Call Integration
 
@@ -85,9 +85,9 @@ LVA_MODEL_API_KEY=...
 LVA_SPEECH_TO_TEXT_PROVIDER=deepgram
 LVA_SPEECH_TO_TEXT_API_KEY=...
 LVA_SPEECH_TO_TEXT_STREAMING_ENABLED=true
-LVA_TEXT_TO_SPEECH_PROVIDER=elevenlabs
+LVA_TEXT_TO_SPEECH_PROVIDER=deepgram
 LVA_TEXT_TO_SPEECH_API_KEY=...
-LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000
+LVA_DEEPGRAM_TEXT_TO_SPEECH_MODEL=aura-2-thalia-en
 ```
 
 Configure the Twilio number's inbound voice webhook to:
@@ -135,10 +135,12 @@ Supported variables:
 - `LVA_SPEECH_TO_TEXT_LANGUAGE`: Deepgram language code; defaults to `en-US`.
 - `LVA_SPEECH_TO_TEXT_ENDPOINTING_MS`: Deepgram endpointing value in milliseconds; defaults to `300`.
 - `LVA_SPEECH_TO_TEXT_API_KEY`: optional STT provider credential.
-- `LVA_TEXT_TO_SPEECH_PROVIDER`: `fake` or `elevenlabs`; defaults to `fake`.
-- `LVA_TEXT_TO_SPEECH_MODEL`: ElevenLabs model name; defaults to `eleven_multilingual_v2`.
-- `LVA_TEXT_TO_SPEECH_VOICE_ID`: ElevenLabs voice ID for synthesis.
-- `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT`: ElevenLabs output format; defaults to `mp3_44100_128`. Use `ulaw_8000` for Twilio Media Streams playback.
+- `LVA_TEXT_TO_SPEECH_PROVIDER`: `fake`, `deepgram`, or `elevenlabs`; defaults to `fake`.
+- `LVA_DEEPGRAM_TEXT_TO_SPEECH_MODEL`: Deepgram Aura voice/model name when using `deepgram`; defaults to `aura-2-thalia-en`.
+- `LVA_DEEPGRAM_TEXT_TO_SPEECH_BASE_URL`: Deepgram TTS REST endpoint; defaults to `https://api.deepgram.com/v1/speak`.
+- `LVA_TEXT_TO_SPEECH_MODEL`: ElevenLabs model name when using `elevenlabs`; defaults to `eleven_multilingual_v2`.
+- `LVA_TEXT_TO_SPEECH_VOICE_ID`: ElevenLabs voice ID for synthesis when using `elevenlabs`.
+- `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT`: ElevenLabs output format when using `elevenlabs`; defaults to `mp3_44100_128`. ADR 0013 recommends Deepgram TTS for Twilio playback because ElevenLabs `ulaw_8000` may be plan-gated.
 - `LVA_TEXT_TO_SPEECH_API_KEY`: optional TTS provider credential.
 - `LVA_TELEPHONY_ACCOUNT_SID`: optional Twilio account identifier.
 - `LVA_TELEPHONY_AUTH_TOKEN`: optional Twilio auth token.

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 EnvironmentName = Literal["local", "test", "development", "production"]
 ModelProviderName = Literal["fake", "openai_compatible"]
 SpeechToTextProviderName = Literal["fake", "deepgram"]
-TextToSpeechProviderName = Literal["fake", "elevenlabs"]
+TextToSpeechProviderName = Literal["fake", "elevenlabs", "deepgram"]
 
 
 class Settings(BaseSettings):
@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     text_to_speech_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
     text_to_speech_output_format: str = "mp3_44100_128"
     text_to_speech_api_key: SecretStr | None = None
+    deepgram_text_to_speech_model: str = "aura-2-thalia-en"
+    deepgram_text_to_speech_base_url: str = "https://api.deepgram.com/v1/speak"
     telephony_account_sid: SecretStr | None = None
     telephony_auth_token: SecretStr | None = None
     telephony_public_base_url: str | None = None

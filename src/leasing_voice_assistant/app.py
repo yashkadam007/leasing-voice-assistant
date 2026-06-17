@@ -29,6 +29,7 @@ from leasing_voice_assistant.prospect_capture import ProspectCaptureService
 from leasing_voice_assistant.provider_adapters import (
     DeepgramLiveStreamingSpeechToTextProvider,
     DeepgramSpeechToTextProvider,
+    DeepgramTextToSpeechProvider,
     ElevenLabsTextToSpeechProvider,
     OpenAICompatibleModelProvider,
 )
@@ -220,6 +221,13 @@ def _streaming_speech_to_text_provider(settings: Settings) -> Any:
 def _text_to_speech_provider(settings: Settings) -> Any:
     if settings.text_to_speech_provider == "fake":
         return FakeTextToSpeechProvider()
+    if settings.text_to_speech_provider == "deepgram":
+        return DeepgramTextToSpeechProvider(
+            api_key=settings.text_to_speech_api_key,
+            model=settings.deepgram_text_to_speech_model,
+            base_url=settings.deepgram_text_to_speech_base_url,
+            timeout_seconds=settings.provider_timeout_seconds,
+        )
     return ElevenLabsTextToSpeechProvider(
         api_key=settings.text_to_speech_api_key,
         voice_id=settings.text_to_speech_voice_id,

@@ -312,6 +312,68 @@ class ElevenLabsTextToSpeechProvider:
         )
 
 
+class DeepgramTextToSpeechProvider:
+    def __init__(
+        self,
+        *,
+        api_key: SecretStr | str | None,
+        model: str = "aura-2-thalia-en",
+        base_url: str = "https://api.deepgram.com/v1/speak",
+        encoding: str = "mulaw",
+        container: str = "none",
+        sample_rate: int = 8000,
+        timeout_seconds: float = 10.0,
+    ) -> None:
+        self.api_key = _required_secret(api_key, "Deepgram API key")
+        self.model = model
+        self.base_url = base_url
+        self.encoding = encoding
+        self.container = container
+        self.sample_rate = sample_rate
+        self.timeout_seconds = timeout_seconds
+
+    def synthesize(self, text: str, *, voice: str | None = None) -> SynthesizedSpeech:
+        model = voice or self.model
+        body = json.dumps({"text": text}).encode()
+        query = urllib.parse.urlencode(
+            {
+                "model": model,
+                "encoding": self.encoding,
+                "container": self.container,
+                "sample_rate": str(self.sample_rate),
+            }
+        )
+        url = f"{self.base_url}?{query}"
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "authorization": f"Token {self.api_key}",
+                "content-type": "application/json",
+                "accept": "audio/*",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                audio = response.read()
+        except urllib.error.URLError as error:
+            raise ProviderRequestError(
+                _request_error_message("Deepgram text-to-speech", error)
+            ) from error
+        return SynthesizedSpeech(
+            audio=audio,
+            content_type=f"audio/x-mulaw;rate={self.sample_rate}",
+            metadata=(
+                ("provider", "deepgram"),
+                ("model", model),
+                ("encoding", self.encoding),
+                ("container", self.container),
+                ("sample_rate", str(self.sample_rate)),
+            ),
+        )
+
+
 def _required_secret(value: SecretStr | str | None, label: str) -> str:
     if value is None:
         raise ProviderConfigurationError(f"Missing required {label}")
