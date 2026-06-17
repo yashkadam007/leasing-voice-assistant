@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Sequence
 from typing import Any, cast
@@ -109,25 +110,28 @@ class ElevenLabsTextToSpeechProvider:
         api_key: SecretStr | str | None,
         voice_id: str = "21m00Tcm4TlvDq8ikWAM",
         model: str = "eleven_multilingual_v2",
+        output_format: str = "mp3_44100_128",
         base_url: str = "https://api.elevenlabs.io/v1/text-to-speech",
         timeout_seconds: float = 10.0,
     ) -> None:
         self.api_key = _required_secret(api_key, "ElevenLabs API key")
         self.voice_id = voice_id
         self.model = model
+        self.output_format = output_format
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
     def synthesize(self, text: str, *, voice: str | None = None) -> SynthesizedSpeech:
         voice_id = voice or self.voice_id
         payload = {"text": text, "model_id": self.model}
+        query = urllib.parse.urlencode({"output_format": self.output_format})
         request = urllib.request.Request(
-            f"{self.base_url}/{voice_id}",
+            f"{self.base_url}/{voice_id}?{query}",
             data=json.dumps(payload).encode(),
             headers={
                 "xi-api-key": self.api_key,
                 "content-type": "application/json",
-                "accept": "audio/mpeg",
+                "accept": _elevenlabs_accept_header(self.output_format),
             },
             method="POST",
         )
@@ -138,8 +142,13 @@ class ElevenLabsTextToSpeechProvider:
             raise ProviderRequestError("ElevenLabs text-to-speech request failed") from error
         return SynthesizedSpeech(
             audio=audio,
-            content_type="audio/mpeg",
-            metadata=(("provider", "elevenlabs"), ("voice_id", voice_id), ("model", self.model)),
+            content_type=_elevenlabs_content_type(self.output_format),
+            metadata=(
+                ("provider", "elevenlabs"),
+                ("voice_id", voice_id),
+                ("model", self.model),
+                ("output_format", self.output_format),
+            ),
         )
 
 
@@ -209,3 +218,11 @@ def _decode_json_object(body: bytes) -> dict[str, object]:
     if not isinstance(data, dict):
         raise ProviderRequestError("provider returned non-object JSON response")
     return data
+
+
+def _elevenlabs_accept_header(output_format: str) -> str:
+    return "audio/basic" if output_format == "ulaw_8000" else "audio/mpeg"
+
+
+def _elevenlabs_content_type(output_format: str) -> str:
+    return "audio/x-mulaw" if output_format == "ulaw_8000" else "audio/mpeg"

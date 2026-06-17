@@ -98,9 +98,20 @@ Implemented M10 voice pipeline:
 - Deterministic fake STT/model/TTS providers cover CI tests, including provider failure and low-confidence transcript paths.
 - M10 does not introduce Twilio, browser microphone UI, websocket streaming, public tunneling, demo recording, persistent session storage, committed audio recordings, real personal data, or required live provider calls.
 
+Implemented M11 Twilio call transport:
+
+- `leasing_voice_assistant.twilio_transport` owns Twilio TwiML generation, media-stream event parsing, bounded audio buffering, call/session state, stale sequence suppression, and Twilio-compatible outbound audio framing.
+- `leasing_voice_assistant.app` exposes `POST /twilio/voice` for inbound voice webhooks and `WS /twilio/media` for Media Streams websocket events.
+- `POST /twilio/voice` validates `X-Twilio-Signature` when `LVA_TELEPHONY_AUTH_TOKEN` is configured.
+- The Twilio adapter reuses `VoicePipeline.handle_turn` and the M09 conversation session path; it does not create a separate telephony agent or bypass the M08 write gate.
+- Twilio caller metadata is propagated as caller phone input to prospect capture when present.
+- ElevenLabs TTS can be configured with `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000` so outbound synthesized audio is compatible with Twilio Media Streams.
+- Automated tests mock Twilio webhook/media events and provider responses; they do not require live Twilio calls, public tunnels, provider credentials, real caller data, or recordings.
+- M11 does not introduce browser microphone UI, admin UI, production call routing, durable call recording storage, committed recordings, or full barge-in hardening.
+
 Recommended MVP boundaries:
 
-- Voice adapter: browser voice loop first if telephony is blocked; Twilio adapter later if credentials are available.
+- Voice adapter: Twilio inbound call is implemented first; browser voice remains a fallback only if a later ADR supersedes that path.
 - STT/TTS/model providers: abstracted behind interfaces so tests can use deterministic fakes.
 - Database: local relational store for properties, units, prospects, and interests.
 - Knowledge base: separate document source with retrieval interface.
@@ -108,14 +119,9 @@ Recommended MVP boundaries:
 
 ## Voice And Audio Pipeline
 
-The implemented M10 backend voice path is transport-neutral. Browser and telephony adapters should collect one utterance, call `VoicePipeline.handle_turn`, then play `VoiceTurnResult.speech` when synthesis succeeds or display/read `assistant_text` when TTS is degraded.
+The implemented backend voice path is transport-neutral below the adapter. The Twilio transport collects one buffered caller utterance from Media Streams, calls `VoicePipeline.handle_turn`, then streams `VoiceTurnResult.speech` back when synthesis returns mu-law audio. If TTS is degraded or returns a non-Twilio audio format, the adapter keeps the caller-safe `assistant_text` in the turn result but does not invent a second playback path.
 
-The future transport path should support two implementations:
-
-- Browser voice loop: microphone input, speech recognition or streamed audio to backend, spoken assistant responses, and an easy demo path.
-- Twilio inbound call: inbound number, media streaming, backend websocket, STT/TTS, and response audio back to the call.
-
-Browser voice is the recommended fallback if Twilio credentials, trial numbers, public tunneling, or latency constraints block real telephony. A real phone call remains ideal evidence if feasible.
+Browser voice remains a possible fallback if Twilio credentials, trial numbers, public tunneling, or latency constraints block final demo evidence, but ADR 0011 selects Twilio as the M11 implementation path.
 
 ## Conversation And Session State
 
@@ -304,24 +310,18 @@ Current local development commands:
 7. Initialize the local SQLite database with `PYTHONPATH=src uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"`.
 8. Edit or review Markdown KB content under `data/kb/`.
 
-Later milestones will add the voice pipeline, browser voice or telephony adapter, and demo recording commands.
+Later milestones will add broader integration/evaluation coverage, observability, and final demo recording commands.
 
 ## Deployment And Demo Flow
 
-The MVP should support a clean local demo. If Twilio is used, document:
+The MVP supports a Twilio call demo path. Required setup:
 
-- Required Twilio credentials.
-- Phone number setup.
-- Public webhook or tunnel.
-- Media streaming configuration.
-- How to place the call.
-
-If browser voice is used, document:
-
-- Browser permissions.
-- Required model/speech credentials.
-- How to start the backend and browser client.
-- How to record the demo.
+- Twilio account and inbound phone number.
+- Public HTTPS tunnel or deployment.
+- `POST /twilio/voice` configured as the number's inbound voice webhook.
+- `LVA_TELEPHONY_PUBLIC_BASE_URL` set to the public base URL so the app can generate the `wss://.../twilio/media` stream URL.
+- Model, STT, and TTS provider credentials; for ElevenLabs playback through Twilio Media Streams, set `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000`.
+- Demo recording method remains final M15 work.
 
 ## Security And Privacy
 
@@ -359,7 +359,7 @@ These interfaces should stay small and practical; avoid building a generic frame
 
 ## Important Trade-Offs
 
-- Browser voice is easier to demo reliably; Twilio is closer to the ideal assignment evidence.
+- Twilio gives stronger real-call evidence but requires credentials, a phone number, public HTTPS/websocket reachability, and compatible audio format configuration.
 - SQLite is simple for clean-checkout local use; Postgres is closer to production but adds setup overhead.
 - Lightweight KB retrieval is faster to build; embeddings may improve semantic matching but add provider and indexing complexity.
 - Direct agent orchestration is easier to control; Strands may be a plus but adds dependency and learning risk.
@@ -367,8 +367,8 @@ These interfaces should stay small and practical; avoid building a generic frame
 
 ## Alternatives Considered
 
-- Twilio-first implementation: strong real-call evidence, but higher credential and networking risk.
-- Browser-first implementation: lower setup risk, still acceptable under the brief if genuinely voice-to-voice.
+- Twilio-first implementation: selected and implemented for M11 because it matches the user's accepted ADR and the strongest assignment evidence, with higher credential and networking risk.
+- Browser-first implementation: lower setup risk, but deferred because it no longer matches the accepted M11 direction.
 - Postgres: robust, but unnecessary for one or two properties unless selected for familiarity.
 - Embedding vector store: useful for larger KBs, but likely optional for the MVP.
 - Full CRM/admin UI: explicitly out of scope.
@@ -382,5 +382,4 @@ These interfaces should stay small and practical; avoid building a generic frame
 - Knowledge-base retrieval approach.
 - Property resolution confidence model.
 - Prospect write gate and idempotency policy.
-- Voice integration path: browser, Twilio, or both.
 - Evaluation and observability approach.

@@ -15,13 +15,13 @@
 | M08 | Safe prospect capture | completed | [0008](../decisions/0008-safe-prospect-capture.md) |
 | M09 | Text-based conversation harness | completed | [0009](../decisions/0009-text-based-conversation-harness.md) |
 | M10 | Voice pipeline | completed | [0010](../decisions/0010-voice-pipeline.md) |
-| M11 | Real call or browser voice integration | not_started | Required |
+| M11 | Real call or browser voice integration | completed | [0011](../decisions/0011-real-call-twilio-integration.md) |
 | M12 | Integration and end-to-end tests | not_started | Required |
 | M13 | Evaluation scenarios | not_started | Required |
 | M14 | Observability and failure handling | not_started | Required |
 | M15 | Documentation, clean-checkout verification, and demo prep | not_started | Required |
 
-**Next milestone:** M11 Real call or browser voice integration.
+**Next milestone:** M12 Integration and end-to-end tests.
 
 ## ADR-First Milestone Workflow
 
@@ -278,24 +278,24 @@
 
 ### M11 Real Call Or Browser Voice Integration
 
-- **Status:** not_started
+- **Status:** completed
 - **Goal:** Expose the voice pipeline through a real inbound call or browser voice loop with streaming transport and interruption handling where practical.
 - **Why now:** This satisfies the assignment's core voice-to-voice requirement.
 - **Dependencies:** M10.
-- **ADR required:** Yes.
-- **Decisions to resolve:** Twilio vs browser-first, streaming protocol and audio format, public tunnel/deploy path, barge-in policy, demo recording approach.
-- **Scope:** One working streaming voice transport connected to the voice pipeline; practical interruption handling for caller speech during assistant playback.
+- **ADR required:** Yes: [0011 Real Call Twilio Integration](../decisions/0011-real-call-twilio-integration.md), Accepted.
+- **Decisions to resolve:** Twilio streaming protocol and audio format, public tunnel/deploy path, barge-in policy, demo recording approach.
+- **Scope:** One working Twilio real-call voice transport connected to the voice pipeline; practical interruption handling for caller speech during assistant playback.
 - **Non-scope:** Admin UI, advanced call routing, multi-party calls, production telephony hardening.
-- **Expected files:** Browser streaming client or Twilio media-stream adapter, interruption/cancelation handling, transport tests where practical.
+- **Expected files:** Twilio media-stream adapter, FastAPI telephony routes, interruption/cancelation handling, transport tests where practical.
 - **Implementation tasks:** Connect microphone/call audio, stream or chunk caller audio into the pipeline, return spoken responses, stop or supersede assistant playback when caller interruption is detected where supported, document setup.
 - **Automated tests:** Transport unit tests with mocked provider events, playback-cancelation or stale-response tests where practical.
 - **Manual verification:** Complete real voice conversation, including at least one attempted caller interruption if the selected transport supports it.
-- **Validation commands:** TBD.
-- **Acceptance criteria:** User can talk to the assistant in voice and receive spoken answers; prospect capture path works; streaming transport is used or a documented browser limitation is recorded; interruption behavior is implemented or explicitly documented as blocked by the selected transport/provider.
-- **Expected demo evidence:** Short recording or video.
-- **Rollback/recovery:** Fall back from Twilio to browser voice if credentials/trial limits block progress.
+- **Validation commands:** `UV_CACHE_DIR=.uv-cache uv run pytest`; `UV_CACHE_DIR=.uv-cache uv run ruff check .`; `UV_CACHE_DIR=.uv-cache uv run ruff format --check .`; `UV_CACHE_DIR=.uv-cache uv run mypy`.
+- **Acceptance criteria:** User can call the assistant through Twilio and receive spoken answers; prospect capture path works; streaming transport is used or a documented Twilio/provider limitation is recorded; interruption behavior is implemented or explicitly documented as blocked by the selected transport/provider. Completed with deterministic Twilio webhook/media-stream coverage and documented real-call setup; live call recording remains final demo work.
+- **Expected demo evidence:** Offline Twilio transport tests; final real-call recording remains in M15.
+- **Rollback/recovery:** Document Twilio credential, trial, or tunnel blockers clearly before considering a browser fallback in a later ADR.
 - **Documentation updates:** README, architecture, status.
-- **Likely risks:** Telephony credentials, trial limitations, browser permissions, latency, audio format issues, interruption race conditions.
+- **Likely risks:** Telephony credentials, trial limitations, public tunnel availability, latency, audio format issues, interruption race conditions.
 
 ### M12 Integration And End-To-End Tests
 

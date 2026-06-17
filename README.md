@@ -4,7 +4,7 @@ Focused MVP voice AI assistant for property leasing. The assistant will answer g
 
 ## Status
 
-M10 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, and a transport-neutral voice pipeline with fake STT/model/TTS coverage. Browser or telephony transport integration is planned for later milestones.
+M11 establishes the repository scaffold, quality tooling, configuration loading, provider interfaces, deterministic fakes, local SQLite persistence, synthetic seed property data, read-only database query tools, Markdown knowledge-base retrieval, deterministic property-resolution state, grounded text-turn answer orchestration, safe prospect-capture write gating, a local text conversation harness, a transport-neutral voice pipeline, and Twilio inbound-call routes with offline media-stream coverage.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ M10 establishes the repository scaffold, quality tooling, configuration loading,
 uv sync --all-groups
 ```
 
-M10 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, or fake voice-pipeline tests. Configuration accepts optional local provider credentials through `LVA_`-prefixed environment variables.
+M11 does not require provider credentials for setup, tests, linting, formatting, type checks, local database initialization, knowledge-base retrieval, property resolution, grounded text-turn orchestration, prospect capture tests, the local text harness, fake voice-pipeline tests, or mocked Twilio transport tests. Real inbound calls require Twilio plus model, STT, and TTS credentials.
 
 ## Local Database
 
@@ -61,6 +61,42 @@ The harness initializes the local SQLite database, reads the Markdown knowledge 
 
 Automated tests use deterministic fake providers and do not call external services. Optional standard-library HTTP adapters live in `leasing_voice_assistant.provider_adapters` for OpenAI-compatible chat completions, Deepgram STT, and ElevenLabs TTS; they fail clearly when selected without credentials.
 
+## Twilio Call Integration
+
+M11 adds Twilio-facing FastAPI routes:
+
+- `POST /twilio/voice`: answers an inbound Twilio voice webhook with TwiML, says a short greeting, and connects a Twilio Media Stream websocket.
+- `WS /twilio/media`: accepts Twilio media-stream events, buffers bounded caller audio, calls `VoicePipeline.handle_turn`, preserves call session state, and streams assistant audio back when TTS returns Twilio-compatible mu-law audio.
+
+If `LVA_TELEPHONY_AUTH_TOKEN` is configured, `POST /twilio/voice` validates the `X-Twilio-Signature` header before returning TwiML.
+
+Run the app:
+
+```bash
+uv run uvicorn --app-dir src leasing_voice_assistant.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+For a real call, expose the app with a public HTTPS tunnel or deployment, then set:
+
+```bash
+LVA_TELEPHONY_PUBLIC_BASE_URL=https://your-public-host.example
+LVA_MODEL_PROVIDER=openai_compatible
+LVA_MODEL_API_KEY=...
+LVA_SPEECH_TO_TEXT_PROVIDER=deepgram
+LVA_SPEECH_TO_TEXT_API_KEY=...
+LVA_TEXT_TO_SPEECH_PROVIDER=elevenlabs
+LVA_TEXT_TO_SPEECH_API_KEY=...
+LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT=ulaw_8000
+```
+
+Configure the Twilio number's inbound voice webhook to:
+
+```text
+POST https://your-public-host.example/twilio/voice
+```
+
+The websocket URL is generated as `wss://your-public-host.example/twilio/media`. Automated tests mock Twilio webhook and media events; CI does not require Twilio credentials, public tunnels, real phone numbers, or recordings.
+
 ## Run
 
 ```bash
@@ -95,7 +131,10 @@ Supported variables:
 - `LVA_TEXT_TO_SPEECH_PROVIDER`: `fake` or `elevenlabs`; defaults to `fake`.
 - `LVA_TEXT_TO_SPEECH_MODEL`: ElevenLabs model name; defaults to `eleven_multilingual_v2`.
 - `LVA_TEXT_TO_SPEECH_VOICE_ID`: ElevenLabs voice ID for synthesis.
+- `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT`: ElevenLabs output format; defaults to `mp3_44100_128`. Use `ulaw_8000` for Twilio Media Streams playback.
 - `LVA_TEXT_TO_SPEECH_API_KEY`: optional TTS provider credential.
-- `LVA_TELEPHONY_ACCOUNT_SID`: optional telephony account identifier for future adapters.
-- `LVA_TELEPHONY_AUTH_TOKEN`: optional telephony auth token for future adapters.
+- `LVA_TELEPHONY_ACCOUNT_SID`: optional Twilio account identifier.
+- `LVA_TELEPHONY_AUTH_TOKEN`: optional Twilio auth token.
+- `LVA_TELEPHONY_PUBLIC_BASE_URL`: public HTTPS base URL used to generate Twilio websocket callback URLs.
+- `LVA_TELEPHONY_INBOUND_NUMBER`: optional Twilio inbound phone number documentation field.
 - `LVA_PROVIDER_TIMEOUT_SECONDS`: optional provider timeout; defaults to `10.0`.

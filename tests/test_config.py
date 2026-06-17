@@ -32,9 +32,12 @@ def test_settings_read_prefixed_environment_values(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("LVA_SPEECH_TO_TEXT_API_KEY", "secret-stt-key")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_PROVIDER", "elevenlabs")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_VOICE_ID", "voice-test")
+    monkeypatch.setenv("LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT", "ulaw_8000")
     monkeypatch.setenv("LVA_TEXT_TO_SPEECH_API_KEY", "secret-tts-key")
     monkeypatch.setenv("LVA_TELEPHONY_ACCOUNT_SID", "secret-account")
     monkeypatch.setenv("LVA_TELEPHONY_AUTH_TOKEN", "secret-token")
+    monkeypatch.setenv("LVA_TELEPHONY_PUBLIC_BASE_URL", "https://voice.example.test")
+    monkeypatch.setenv("LVA_TELEPHONY_INBOUND_NUMBER", "+15550000000")
 
     settings = build_settings()
 
@@ -44,6 +47,9 @@ def test_settings_read_prefixed_environment_values(monkeypatch: pytest.MonkeyPat
     assert settings.speech_to_text_provider == "deepgram"
     assert settings.text_to_speech_provider == "elevenlabs"
     assert settings.text_to_speech_voice_id == "voice-test"
+    assert settings.text_to_speech_output_format == "ulaw_8000"
+    assert settings.telephony_public_base_url == "https://voice.example.test"
+    assert settings.telephony_inbound_number == "+15550000000"
     assert settings.has_model_credentials is True
     assert settings.has_speech_to_text_credentials is True
     assert settings.has_text_to_speech_credentials is True

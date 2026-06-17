@@ -55,3 +55,4 @@ Each ADR should link to:
 | [0008](0008-safe-prospect-capture.md) | Safe Prospect Capture | Accepted | M08 | Defines deterministic capture state, write-gate outcomes, confirmation handling, and safe prospect-interest writes. |
 | [0009](0009-text-based-conversation-harness.md) | Text Based Conversation Harness | Accepted | M09 | Defines a reusable in-memory conversation session service plus a thin CLI harness for complete text conversation testing. |
 | [0010](0010-voice-pipeline.md) | Voice Pipeline | Accepted | M10 | Defines a transport-neutral, turn-based Deepgram-capable STT, model-backed reply, and ElevenLabs-capable TTS pipeline with fake provider coverage. |
+| [0011](0011-real-call-twilio-integration.md) | Real Call Twilio Integration | Accepted | M11 | Chooses and implements a Twilio-first real inbound-call adapter over the browser fallback, reusing the M10 voice pipeline and keeping automated tests offline. |

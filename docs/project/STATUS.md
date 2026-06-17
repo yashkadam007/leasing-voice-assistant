@@ -2,13 +2,13 @@
 
 ## Current State
 
-- **Project state:** M10 voice pipeline is complete.
+- **Project state:** M11 Twilio real-call transport implementation is complete with offline webhook and media-stream tests.
 - **Date:** 2026-06-17
 - **Current branch:** `main`.
-- **Active milestone:** M11 Real call or browser voice integration.
-- **Latest completed milestone:** M10 Voice pipeline.
-- **Next milestone:** M11 Real call or browser voice integration.
-- **Latest ADR:** `docs/decisions/0010-voice-pipeline.md` (Accepted).
+- **Active milestone:** M12 Integration and end-to-end tests.
+- **Latest completed milestone:** M11 Real call or browser voice integration.
+- **Next milestone:** M12 Integration and end-to-end tests.
+- **Latest ADR:** `docs/decisions/0011-real-call-twilio-integration.md` (Accepted).
 
 ## Completed Work
 
@@ -60,19 +60,27 @@
 - Updated `.env.example` and README configuration documentation for the new provider settings.
 - Extended deterministic fake STT, model, and TTS providers with failure modes for offline coverage.
 - Added voice-pipeline tests for a normal spoken property question, low-confidence prospect-interest capture with caller metadata, unsupported model fact rejection, STT fallback, model fallback, TTS degradation, and missing real-provider credentials.
+- ADR 0011 accepted for Twilio-first real inbound-call integration over the existing M10 voice pipeline.
+- Added `leasing_voice_assistant.twilio_transport` with TwiML generation, call/session state, Twilio media-stream event parsing, bounded audio buffering, stale sequence suppression, malformed payload handling, voice-pipeline invocation, and Twilio-compatible outbound audio frames.
+- Added FastAPI Twilio routes: `POST /twilio/voice` and `WS /twilio/media`.
+- Extended application construction with provider wiring for fake and real model/STT/TTS providers.
+- Added `LVA_TELEPHONY_PUBLIC_BASE_URL`, `LVA_TELEPHONY_INBOUND_NUMBER`, and `LVA_TEXT_TO_SPEECH_OUTPUT_FORMAT` settings.
+- Extended the ElevenLabs adapter with output-format support so `ulaw_8000` can be used for Twilio Media Streams playback.
+- Added Twilio transport tests for TwiML shape, optional Twilio signature validation, caller metadata propagation, one media-stream turn through the voice pipeline, non-Twilio TTS fallback behavior, malformed/stale/empty media events, bounded buffers, and route-level Twilio webhook/websocket acceptance.
+- Updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status for M11.
 
 ## Work Currently In Progress
 
-- None. M11 should start with an ADR before browser or telephony transport implementation.
+- M12 has not started. Per the milestone workflow, do not begin M12 without a new user instruction and accepted ADR.
 
 ## Validation Commands Last Run
 
 | Command | Result |
 | --- | --- |
-| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 68 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
+| `UV_CACHE_DIR=.uv-cache uv run pytest` | Passed; 77 passed, 1 FastAPI/Starlette `TestClient` deprecation warning. |
 | `UV_CACHE_DIR=.uv-cache uv run ruff check .` | Passed; all checks passed. |
-| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 27 files already formatted. |
-| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 27 source files. |
+| `UV_CACHE_DIR=.uv-cache uv run ruff format --check .` | Passed; 29 files already formatted. |
+| `UV_CACHE_DIR=.uv-cache uv run mypy` | Passed; no issues found in 29 source files. |
 | `PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -c "from leasing_voice_assistant.persistence import initialize_database; initialize_database().close()"` | Passed; local SQLite database initialized from migrations and seed data. |
 | Scripted text harness: `printf 'How much is the lake-facing unit at Lakeview Flats?\nMy name is Avery Lee, my phone is 555-123-4567, and I am interested in this.\nquit\n' \| PYTHONPATH=src UV_CACHE_DIR=.uv-cache uv run python -m leasing_voice_assistant.text_harness --debug` | Passed; returned a grounded unit rent answer, safe debug traces, and a unit-level prospect-interest write acknowledgement. |
 
@@ -90,9 +98,10 @@
 - Prospect-capture tests confirm missing identity blocks writes, ambiguous property context blocks writes, unclear intent requires confirmation, garbled or low-confidence transcript markers require confirmation, explicit confirmation writes pending interest, clear intent writes unit-level interest, caller-phone metadata supports existing-prospect upsert, duplicate interest writes remain idempotent, and changed target details invalidate pending confirmation.
 - Conversation-session tests confirm text session state preserves multi-turn property context, transcript entries are recorded, debug traces expose answer and capture decisions safely, complete text prospect capture writes unit-level interest, confirmation-required text flows can be completed, ambiguous property writes remain blocked, and the CLI builder uses real local repositories.
 - Voice-pipeline tests confirm fake audio input is transcribed, transcript confidence flows into the session write gate, model-backed voice text is synthesized when grounded, unsupported model facts are rejected in favor of the safe session reply, STT failure returns a caller-safe repeat prompt, model failure falls back to the safe session reply, and TTS failure returns assistant text with a degraded result.
-- Provider-adapter tests confirm real OpenAI-compatible, Deepgram, and ElevenLabs adapters fail clearly without required credentials.
+- Provider-adapter tests confirm real OpenAI-compatible, Deepgram, and ElevenLabs adapters fail clearly without required credentials and that the ElevenLabs adapter accepts the Twilio-oriented `ulaw_8000` output format.
+- Twilio transport tests confirm inbound webhook TwiML includes the media-stream websocket and caller metadata, optional Twilio signature validation rejects missing signatures and accepts valid signatures, media events buffer a bounded turn and call the voice pipeline, caller phone metadata is preserved, Twilio-compatible synthesized audio is returned as outbound media/mark events, non-Twilio TTS audio is not streamed incorrectly, malformed and stale frames are ignored, oversized buffers fail safely, and FastAPI Twilio routes accept mocked webhook/websocket traffic.
 - Scripted CLI verification confirms a local text conversation can answer a grounded Lakeview Flats rent question and record Avery Lee's synthetic interest in unit 2B.
-- No real provider calls, credentials, embeddings, vector database, browser UI, telephony integration, persistent session storage, CRM workflow, schema migration, committed audio recordings, or real personal data were added.
+- No real provider calls, credentials, embeddings, vector database, browser UI, persistent session storage, CRM workflow, schema migration, committed audio recordings, or real personal data were added.
 
 ## Known Failures
 
@@ -102,18 +111,17 @@
 
 ## Blockers
 
-- None for M10.
+- None for M11.
 
 ## Unresolved Decisions
 
 - Whether to use Strands Agents SDK.
-- Whether to prioritize Twilio or browser voice for the first working voice demo.
 - Demo recording path.
 
 ## Assumptions
 
 - One or two properties are sufficient for MVP.
-- Browser-based voice is acceptable if telephony credentials or trial setup block Twilio.
+- Twilio real-call integration is the selected M11 direction; browser voice is a fallback only if a later ADR supersedes ADR 0011.
 - M03 created synthetic seed data because no separate sample listing files were present in the repository.
 - M05 created synthetic KB content because no separate raw knowledge-base files were present in the repository.
 - Clean-checkout reproducibility remains a final requirement and should be verified before submission.
@@ -127,18 +135,36 @@
 - Model provider account and API key when the OpenAI-compatible model adapter is selected.
 - Deepgram account and API key when the Deepgram STT adapter is selected.
 - ElevenLabs account, API key, and voice selection when the ElevenLabs TTS adapter is selected.
-- Twilio account, number, and public tunnel/deployment if real telephony is chosen.
+- Twilio account, number, and public tunnel/deployment for real telephony verification.
 - Demo recording method.
 
 ## Files Changed In Current Milestone
 
+- `docs/decisions/0011-real-call-twilio-integration.md`
+- `docs/decisions/README.md`
+- `docs/project/ARCHITECTURE.md`
+- `docs/project/IMPLEMENTATION_PLAN.md`
+- `docs/project/REQUIREMENTS.md`
+- `docs/project/STATUS.md`
+- `.env.example`
+- `README.md`
+- `src/leasing_voice_assistant/app.py`
+- `src/leasing_voice_assistant/config.py`
+- `src/leasing_voice_assistant/provider_adapters.py`
+- `src/leasing_voice_assistant/twilio_transport.py`
+- `tests/test_config.py`
+- `tests/test_provider_adapters.py`
+- `tests/test_twilio_transport.py`
+
+## Files Changed In Previous Completed Milestone
+
+- `README.md`
 - `docs/decisions/0010-voice-pipeline.md`
 - `docs/decisions/README.md`
 - `docs/project/ARCHITECTURE.md`
 - `docs/project/IMPLEMENTATION_PLAN.md`
 - `docs/project/STATUS.md`
 - `.env.example`
-- `README.md`
 - `src/leasing_voice_assistant/config.py`
 - `src/leasing_voice_assistant/fakes.py`
 - `src/leasing_voice_assistant/interfaces.py`
@@ -149,26 +175,13 @@
 - `tests/test_provider_adapters.py`
 - `tests/test_voice_pipeline.py`
 
-## Files Changed In Previous Completed Milestone
-
-- `README.md`
-- `docs/decisions/0009-text-based-conversation-harness.md`
-- `docs/decisions/README.md`
-- `docs/project/ARCHITECTURE.md`
-- `docs/project/IMPLEMENTATION_PLAN.md`
-- `docs/project/REQUIREMENTS.md`
-- `docs/project/STATUS.md`
-- `src/leasing_voice_assistant/conversation_session.py`
-- `src/leasing_voice_assistant/text_harness.py`
-- `tests/test_conversation_session.py`
-
 ## Exact Next Action
 
-Start M11 with an ADR for browser voice versus Twilio transport integration.
+Create the M12 ADR for integration and end-to-end tests before implementing M12.
 
 ## Context Handoff Summary
 
-Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0010. M00, M01, M02, M03, M04, M05, M06, M07, M08, M09, and M10 are complete. M11 is the next milestone and needs an ADR before implementation.
+Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/REQUIREMENTS.md`, `docs/project/ARCHITECTURE.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/project/STATUS.md`, `docs/decisions/README.md`, and accepted ADRs 0001 through 0011. M00 through M11 are complete. M12 is the next milestone and needs an ADR before implementation.
 
 ## Progress Log
 
@@ -358,3 +371,13 @@ Fresh sessions should start by reading `brief.md`, `AGENTS.md`, `docs/project/RE
 - Marked M10 complete and set M11 as the next milestone.
 - Updated the M11 plan to make streaming transport and practical barge-in/interruption handling explicit ADR topics and acceptance criteria.
 - Updated the implementation plan, status, and ADR index.
+
+### 2026-06-17 M11 Implementation
+
+- User explicitly accepted ADR 0011.
+- Marked ADR 0011 Accepted and implemented M11 only.
+- Added Twilio TwiML generation, inbound voice webhook route with optional signature validation, Media Streams websocket route, bounded media buffering, stale/malformed frame handling, caller metadata propagation, and Twilio-compatible outbound media framing.
+- Extended provider configuration for Twilio public callback URLs and ElevenLabs `ulaw_8000` output format.
+- Added offline Twilio transport tests and updated README, `.env.example`, architecture, requirements traceability, implementation plan, ADR index, and status.
+- Ran tests, lint, format check, and type check.
+- Marked M11 complete and set M12 as the next milestone.

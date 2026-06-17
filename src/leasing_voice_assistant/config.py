@@ -29,9 +29,12 @@ class Settings(BaseSettings):
     text_to_speech_provider: TextToSpeechProviderName = "fake"
     text_to_speech_model: str = "eleven_multilingual_v2"
     text_to_speech_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
+    text_to_speech_output_format: str = "mp3_44100_128"
     text_to_speech_api_key: SecretStr | None = None
     telephony_account_sid: SecretStr | None = None
     telephony_auth_token: SecretStr | None = None
+    telephony_public_base_url: str | None = None
+    telephony_inbound_number: str | None = None
     provider_timeout_seconds: float = Field(default=10.0, gt=0)
 
     @property
