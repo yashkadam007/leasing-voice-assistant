@@ -4,6 +4,7 @@ from typing import Any, cast
 
 import pytest
 
+from leasing_voice_assistant.interfaces import ModelMessage
 from leasing_voice_assistant.provider_adapters import (
     DeepgramLiveStreamingSpeechToTextProvider,
     DeepgramSpeechToTextProvider,
@@ -27,6 +28,42 @@ def test_real_provider_adapters_fail_clearly_without_credentials() -> None:
         ElevenLabsTextToSpeechProvider(api_key=None)
     with pytest.raises(ProviderConfigurationError, match="Deepgram API key"):
         DeepgramTextToSpeechProvider(api_key=None)
+
+
+def test_openai_compatible_model_adapter_sends_user_agent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"choices": [{"message": {"content": "ok"}}]}'
+
+    def fake_urlopen(request: object, *, timeout: float) -> Response:
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    provider = OpenAICompatibleModelProvider(
+        api_key="secret",
+        model="llama-test",
+        base_url="https://api.example.test/openai/v1/chat/completions",
+        timeout_seconds=3.0,
+    )
+
+    response = provider.generate((ModelMessage(role="user", content="Reply with ok."),))
+    request = cast("urllib.request.Request", captured["request"])
+
+    assert response.text == "ok"
+    assert request.headers["User-agent"] == "leasing-voice-assistant/0.1"
+    assert captured["timeout"] == 3.0
 
 
 def test_elevenlabs_adapter_accepts_twilio_mulaw_output_format() -> None:

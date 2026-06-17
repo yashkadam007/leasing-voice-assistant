@@ -18,6 +18,8 @@ from leasing_voice_assistant.interfaces import (
     Transcript,
 )
 
+_USER_AGENT = "leasing-voice-assistant/0.1"
+
 
 class ProviderConfigurationError(ValueError):
     """Raised when a real provider adapter is selected without required settings."""
@@ -290,6 +292,7 @@ class ElevenLabsTextToSpeechProvider:
                 "xi-api-key": self.api_key,
                 "content-type": "application/json",
                 "accept": _elevenlabs_accept_header(self.output_format),
+                "user-agent": _USER_AGENT,
             },
             method="POST",
         )
@@ -351,6 +354,7 @@ class DeepgramTextToSpeechProvider:
                 "authorization": f"Token {self.api_key}",
                 "content-type": "application/json",
                 "accept": "audio/*",
+                "user-agent": _USER_AGENT,
             },
             method="POST",
         )
@@ -396,6 +400,7 @@ def _json_request(
         headers={
             "authorization": f"Bearer {api_key}",
             "content-type": "application/json",
+            "user-agent": _USER_AGENT,
         },
         method="POST",
     )
@@ -421,6 +426,7 @@ def _binary_request(
         headers={
             "authorization": f"Token {api_key}",
             "content-type": content_type,
+            "user-agent": _USER_AGENT,
         },
         method="POST",
     )
