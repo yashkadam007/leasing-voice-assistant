@@ -4,6 +4,9 @@ from leasing_voice_assistant.worker.prompts import initial_greeting, initial_ins
 def test_prompt_uses_voice_safe_formatting_rules() -> None:
     instructions = initial_instructions()
 
+    assert "warm, friendly, calm leasing-office tone" in instructions
+    assert "not scripted or salesy" in instructions
+    assert "Do not over-apologize" in instructions
     assert "phone audio only" in instructions
     assert "do not use markdown" in instructions
     assert "bullets" in instructions
