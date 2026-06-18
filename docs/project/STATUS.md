@@ -2,13 +2,13 @@
 
 ## Current Phase
 
-Planning.
+Milestone 1 implemented. Milestone 2 planning is next.
 
 ## Milestone Status
 
 | Milestone | Status | ADR | Implementation | Notes |
 | --- | --- | --- | --- | --- |
-| 1. Project Foundation and Runtime Shape | Pending | Not started | Not started | First ADR to create. |
+| 1. Project Foundation and Runtime Shape | Complete | Accepted in `docs/project/adr/0001-project-foundation-and-runtime.md` | Implemented | `uv sync --all-groups`, Ruff, Pytest, FastAPI `/health`, and worker import verified. |
 | 2. SQLite Domain Model, Repositories, and Seed Data | Pending | Not started | Not started | Use SQLite as requested. |
 | 3. Knowledge Base Retrieval | Pending | Not started | Not started | Start with local FTS/ranker; vector retrieval remains optional. |
 | 4. Provider Adapter Layer | Pending | Not started | Not started | Defaults: Deepgram STT, Deepgram TTS, OpenRouter LLM. |
@@ -39,5 +39,4 @@ Planning.
 
 ## Next Action
 
-Create ADR 0001 for Milestone 1: Project Foundation and Runtime Shape, using the Tyree and Akerman decision record template.
-
+Prepare ADR 0002 for Milestone 2: SQLite Domain Model, Repositories, and Seed Data.
