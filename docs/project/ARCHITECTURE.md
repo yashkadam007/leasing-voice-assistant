@@ -289,6 +289,7 @@ The next useful measurement layer would persist transcripts, tool calls, capture
 - Add the automated regression and LLM-as-judge evaluation harness described above.
 - Add Langfuse tracing for LLM calls, tool calls, retrieval results, capture rejections, and latency metrics.
 - Persist call transcripts and tool events for post-call review and regression analysis.
+- Improve email capture normalization so spoken addresses such as `jack sparrow at the rate gmail dot com` are stored as usable email addresses instead of literal transcript text.
 - Add a browser-based LiveKit voice fallback for reviewers without telephony credentials.
 - Move knowledge retrieval to embeddings or hybrid lexical/vector retrieval if the corpus grows.
 - Tune voice latency and barge-in settings from real call recordings rather than unit-test assumptions.

@@ -271,3 +271,4 @@ uv run ruff format --check .
 - Add transcript and tool-event persistence for review and regression analysis.
 - Add Langfuse tracing for LLM calls, tool calls, retrieval results, capture rejections, and latency metrics.
 - Add an automated evaluation harness, such as an LLM-as-judge rubric over fixed call transcripts and expected tool/write outcomes.
+- Improve email capture normalization so spoken addresses like `jack sparrow at the rate gmail dot com` are converted into usable email addresses.
