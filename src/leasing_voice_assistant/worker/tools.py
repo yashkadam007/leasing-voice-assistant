@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from functools import wraps
 from importlib import import_module
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -61,12 +63,12 @@ class WorkerToolSet:
             self.capture_prospect_interest,
         ]
 
-    def as_livekit_tools(self) -> list[Callable[..., dict]]:
+    def as_livekit_tools(self) -> list[Callable[..., Awaitable[dict]]]:
         """Return LiveKit-decorated tools when the installed SDK exposes a decorator."""
         decorator = _livekit_tool_decorator()
         if decorator is None:
-            return self.as_callables()
-        return [decorator(tool) for tool in self.as_callables()]
+            return [_async_tool(tool) for tool in self.as_callables()]
+        return [decorator(_async_tool(tool)) for tool in self.as_callables()]
 
 
 def _livekit_tool_decorator() -> Callable[[Callable[..., dict]], Callable[..., dict]] | None:
@@ -85,6 +87,16 @@ def _livekit_tool_decorator() -> Callable[[Callable[..., dict]], Callable[..., d
         return decorator
 
     return None
+
+
+def _async_tool(tool: Callable[..., dict]) -> Callable[..., Awaitable[dict]]:
+    """Adapt sync domain tools for LiveKit SDKs that await function tools."""
+
+    @wraps(tool)
+    async def wrapper(*args: Any, **kwargs: Any) -> dict:
+        return tool(*args, **kwargs)
+
+    return wrapper
 
 
 def build_worker_tools(session: Session, state: CallState) -> WorkerToolSet:
