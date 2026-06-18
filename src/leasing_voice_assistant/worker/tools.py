@@ -16,6 +16,7 @@ class WorkerToolSet:
     """Call-scoped worker tool surface backed by domain leasing tools."""
 
     def __init__(self, session: Session, state: CallState) -> None:
+        self.session = session
         self.domain_tools = LeasingAgentTools(session, state)
 
     def search_properties(self, query: str, limit: int = 5) -> dict:
@@ -47,12 +48,19 @@ class WorkerToolSet:
         notes: str | None = None,
     ) -> dict:
         """Create or update a prospect interest only after the safety gate passes."""
-        return self.domain_tools.capture_prospect_interest(
-            caller_name=caller_name,
-            caller_email=caller_email,
-            confirmed_interest=confirmed_interest,
-            notes=notes,
-        )
+        try:
+            result = self.domain_tools.capture_prospect_interest(
+                caller_name=caller_name,
+                caller_email=caller_email,
+                confirmed_interest=confirmed_interest,
+                notes=notes,
+            )
+            if result["status"] == "captured":
+                self.session.commit()
+            return result
+        except Exception:
+            self.session.rollback()
+            raise
 
     def as_callables(self) -> list[Callable[..., dict]]:
         """Return undecorated callables for tests or runtimes without LiveKit installed."""

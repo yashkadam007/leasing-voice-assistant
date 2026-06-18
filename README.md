@@ -121,7 +121,13 @@ Health check:
 GET /health
 ```
 
-The FastAPI app is intentionally not in the realtime audio path. It is currently a small control plane and health endpoint.
+Prospect capture verification:
+
+```text
+GET /prospects
+```
+
+The FastAPI app is intentionally not in the realtime audio path. It is a small control plane for health checks and read-only reviewer verification.
 
 ## Run the voice worker
 
@@ -161,7 +167,13 @@ uv run leasing-voice-test-call --dry-run
 
 ## Verify prospect capture
 
-After a successful call, inspect the SQLite database:
+After a successful call, inspect captured prospects and interests through the API:
+
+```sh
+curl http://127.0.0.1:8000/prospects
+```
+
+Or inspect the SQLite database directly:
 
 ```sh
 sqlite3 leasing_voice_assistant.db \
