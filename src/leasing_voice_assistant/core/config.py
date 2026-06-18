@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     livekit_url: str | None = None
     livekit_api_key: str | None = None
     livekit_api_secret: str | None = None
-    livekit_agent_name: str = "Kiara"
+    livekit_agent_name: str = ""
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"

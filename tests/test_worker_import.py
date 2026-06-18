@@ -48,7 +48,7 @@ def test_worker_provider_factory_builds_without_constructing_clients() -> None:
     assert factory.settings.app_env == "test"
 
 
-def test_worker_options_register_kiara_as_agent_name() -> None:
+def test_worker_options_use_default_agent_dispatch_name() -> None:
     options = create_worker_options(
         settings_for_test(
             app_env="test",
@@ -58,4 +58,4 @@ def test_worker_options_register_kiara_as_agent_name() -> None:
         )
     )
 
-    assert options.agent_name == "Kiara"
+    assert options.agent_name == ""
