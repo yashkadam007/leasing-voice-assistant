@@ -1,4 +1,4 @@
-from leasing_voice_assistant.worker.prompts import initial_instructions
+from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
 
 
 def test_prompt_uses_voice_safe_formatting_rules() -> None:
@@ -34,3 +34,10 @@ def test_prompt_handles_incomplete_utterances() -> None:
 
     assert "utterance seems incomplete" in instructions
     assert "ask a brief clarification" in instructions
+
+
+def test_initial_greeting_is_short_and_human() -> None:
+    greeting = initial_greeting()
+
+    assert greeting == "Hi, this is Kiara from the leasing team. How can I help you today?"
+    assert "interested" not in greeting.lower()

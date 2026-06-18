@@ -19,7 +19,7 @@ from leasing_voice_assistant.db.session import (
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.providers.factory import ProviderFactory
 from leasing_voice_assistant.worker.call_context import build_call_context
-from leasing_voice_assistant.worker.prompts import initial_instructions
+from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
 from leasing_voice_assistant.worker.tools import build_worker_tools
 
 logger = logging.getLogger(__name__)
@@ -178,6 +178,7 @@ async def _start_agent_session(
     install_session_logging(session)
     agent = agent_class(instructions=initial_instructions(), tools=tools)
     await _maybe_await(session.start(room=ctx.room, agent=agent))
+    session.say(initial_greeting(), allow_interruptions=True)
 
 
 def install_session_logging(session: Any) -> None:
