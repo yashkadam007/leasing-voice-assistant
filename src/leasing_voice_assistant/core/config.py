@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"
-    llm_provider: Literal["openrouter"] = "openrouter"
+    llm_provider: Literal["openrouter", "openai"] = "openrouter"
 
     deepgram_api_key: str | None = Field(default=None, repr=False)
     deepgram_stt_model: str = "nova-3"
@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = Field(default=None, repr=False)
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openai/gpt-4o-mini"
+
+    openai_api_key: str | None = Field(default=None, repr=False)
+    openai_model: str = "gpt-4o-mini"
 
 
 @lru_cache

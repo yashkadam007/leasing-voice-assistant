@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass
 from importlib import import_module
 from typing import Any
@@ -20,14 +22,16 @@ from leasing_voice_assistant.worker.call_context import build_call_context
 from leasing_voice_assistant.worker.prompts import initial_instructions
 from leasing_voice_assistant.worker.tools import build_worker_tools
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class TurnDetectionConfig:
-    """Conservative defaults for leasing phone conversations."""
+    """Low-latency defaults for leasing phone conversations."""
 
     allow_interruptions: bool = True
-    min_endpointing_delay_seconds: float = 0.7
-    max_endpointing_delay_seconds: float = 3.0
+    min_endpointing_delay_seconds: float = 0.35
+    max_endpointing_delay_seconds: float = 1.2
     min_interruption_duration_seconds: float = 0.5
     min_interruption_words: int = 0
 
@@ -171,8 +175,156 @@ async def _start_agent_session(
         tts=provider_clients.tts,
         turn_handling=build_turn_handling_options(agents, turn_config),
     )
+    install_session_logging(session)
     agent = agent_class(instructions=initial_instructions(), tools=tools)
     await _maybe_await(session.start(room=ctx.room, agent=agent))
+
+
+def install_session_logging(session: Any) -> None:
+    """Attach realtime call diagnostics to a LiveKit agent session."""
+
+    @session.on("user_input_transcribed")
+    def _on_user_input_transcribed(event: Any) -> None:
+        transcript = _clean_log_text(getattr(event, "transcript", ""))
+        if not transcript:
+            return
+
+        if getattr(event, "is_final", False):
+            logger.info(
+                "voice_session.stt_final transcript=%r speaker_id=%s language=%s",
+                transcript,
+                getattr(event, "speaker_id", None),
+                getattr(event, "language", None),
+            )
+        else:
+            logger.debug("voice_session.stt_partial transcript=%r", transcript)
+
+    @session.on("conversation_item_added")
+    def _on_conversation_item_added(event: Any) -> None:
+        item = getattr(event, "item", None)
+        if getattr(item, "type", None) != "message":
+            return
+
+        role = getattr(item, "role", "unknown")
+        text = _message_text(item)
+        metrics = _latency_metrics(getattr(item, "metrics", {}))
+        if role == "user":
+            logger.info(
+                "voice_session.user_turn_committed text=%r metrics=%s",
+                text,
+                metrics,
+            )
+        elif role == "assistant":
+            logger.info(
+                "voice_session.assistant_response_committed text=%r interrupted=%s metrics=%s",
+                text,
+                getattr(item, "interrupted", False),
+                metrics,
+            )
+        else:
+            logger.debug("voice_session.message_committed role=%s text=%r", role, text)
+
+    @session.on("speech_created")
+    def _on_speech_created(event: Any) -> None:
+        logger.info(
+            "voice_session.speech_created source=%s user_initiated=%s",
+            getattr(event, "source", None),
+            getattr(event, "user_initiated", None),
+        )
+
+    @session.on("agent_state_changed")
+    def _on_agent_state_changed(event: Any) -> None:
+        logger.info(
+            "voice_session.agent_state_changed old_state=%s new_state=%s",
+            getattr(event, "old_state", None),
+            getattr(event, "new_state", None),
+        )
+
+    @session.on("function_tools_executed")
+    def _on_function_tools_executed(event: Any) -> None:
+        tool_summaries = []
+        for function_call, function_output in event.zipped():
+            tool_summaries.append(
+                {
+                    "name": getattr(function_call, "name", None),
+                    "call_id": getattr(function_call, "call_id", None),
+                    "output": _tool_output_summary(function_output),
+                }
+            )
+        logger.info("voice_session.function_tools_executed tools=%s", tool_summaries)
+
+    @session.on("error")
+    def _on_error(event: Any) -> None:
+        logger.error(
+            "voice_session.error source=%r error=%r",
+            getattr(event, "source", None),
+            getattr(event, "error", None),
+        )
+
+    @session.on("close")
+    def _on_close(event: Any) -> None:
+        logger.info(
+            "voice_session.closed reason=%s error=%r",
+            getattr(event, "reason", None),
+            getattr(event, "error", None),
+        )
+
+
+def _message_text(message: Any) -> str:
+    text_content = getattr(message, "text_content", None)
+    if text_content:
+        return _clean_log_text(text_content)
+
+    content = getattr(message, "content", [])
+    text_parts = [part for part in content if isinstance(part, str)]
+    return _clean_log_text(" ".join(text_parts))
+
+
+def _clean_log_text(value: str, *, max_length: int = 500) -> str:
+    text = " ".join(value.split())
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3] + "..."
+
+
+def _latency_metrics(metrics: Any) -> dict[str, Any]:
+    if not isinstance(metrics, dict):
+        return {}
+    keys = [
+        "transcription_delay",
+        "end_of_turn_delay",
+        "llm_node_ttft",
+        "tts_node_ttfb",
+        "playback_latency",
+        "e2e_latency",
+    ]
+    return {
+        key: round(value, 3) for key in keys if isinstance((value := metrics.get(key)), int | float)
+    }
+
+
+def _tool_output_summary(function_output: Any) -> dict[str, Any] | None:
+    if function_output is None:
+        return None
+
+    summary: dict[str, Any] = {
+        "is_error": getattr(function_output, "is_error", None),
+    }
+    output = getattr(function_output, "output", "")
+    try:
+        parsed = json.loads(output)
+    except (TypeError, json.JSONDecodeError):
+        summary["text"] = _clean_log_text(str(output), max_length=200)
+        return summary
+
+    if isinstance(parsed, dict):
+        for key in ("status", "reasons", "ambiguous"):
+            if key in parsed:
+                summary[key] = parsed[key]
+        return summary
+
+    summary["text"] = _clean_log_text(str(parsed), max_length=200)
+    return summary
 
 
 async def _maybe_await(value: Any) -> Any:

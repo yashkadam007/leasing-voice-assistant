@@ -37,6 +37,18 @@ def test_search_properties_resolves_single_property_candidate(session) -> None:
     assert state.current_target.confidence >= 0.8
 
 
+def test_search_properties_returns_available_units_for_property_match(session) -> None:
+    state = CallState(caller_phone_number="415-555-1212")
+    tools = LeasingAgentTools(session, state)
+
+    result = tools.search_properties("apartments available at Aurora Heights")
+
+    assert result["status"] == "matched"
+    available_units = result["candidates"][0]["available_units"]
+    assert [unit["unit_number"] for unit in available_units] == ["4B", "8A"]
+    assert all(unit["status"] == "available" for unit in available_units)
+
+
 def test_search_properties_marks_multiple_candidates_ambiguous(session) -> None:
     state = CallState(caller_phone_number="415-555-1212")
     tools = LeasingAgentTools(session, state)
@@ -55,10 +67,8 @@ def test_search_properties_marks_multiple_candidates_ambiguous(session) -> None:
 def test_get_unit_details_returns_authoritative_unit_facts(session) -> None:
     state = CallState()
     tools = LeasingAgentTools(session, state)
-    search = tools.search_properties("8A")
-    unit_id = search["candidates"][0]["target_id"]
 
-    result = tools.get_unit_details(unit_id)
+    result = tools.get_unit_details("8A")
 
     assert result["status"] == "found"
     assert result["unit"]["unit_number"] == "8A"
@@ -66,6 +76,42 @@ def test_get_unit_details_returns_authoritative_unit_facts(session) -> None:
     assert result["unit"]["rent_cents"] == 482500
     assert state.current_target is not None
     assert state.current_target.target_type == "unit"
+
+
+def test_get_unit_details_normalizes_spoken_unit_number(session) -> None:
+    state = CallState()
+    tools = LeasingAgentTools(session, state)
+
+    result = tools.get_unit_details("unit eight a")
+
+    assert result["status"] == "found"
+    assert result["unit"]["unit_number"] == "8A"
+    assert result["unit"]["rent_cents"] == 482500
+
+
+def test_get_unit_details_does_not_treat_spoken_number_as_database_id(session) -> None:
+    state = CallState()
+    tools = LeasingAgentTools(session, state)
+
+    result = tools.get_unit_details("unit eight b")
+
+    assert result == {
+        "status": "not_found",
+        "unit_number": "unit eight b",
+    }
+
+
+def test_search_properties_normalizes_spoken_unit_number(session) -> None:
+    state = CallState()
+    tools = LeasingAgentTools(session, state)
+
+    result = tools.search_properties("unit eight a")
+
+    assert result["status"] == "matched"
+    assert result["candidates"][0]["target_type"] == "unit"
+    assert result["candidates"][0]["label"] == "Aurora Heights unit 8A"
+    assert state.current_target is not None
+    assert state.current_target.label == "Aurora Heights unit 8A"
 
 
 def test_search_knowledge_base_returns_source_backed_results(session) -> None:

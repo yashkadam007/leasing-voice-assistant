@@ -11,6 +11,7 @@ from leasing_voice_assistant.knowledge.retrieval import KnowledgeBase
 from leasing_voice_assistant.repositories.properties import (
     PropertiesRepository,
     PropertySearchResult,
+    normalize_unit_number,
 )
 from leasing_voice_assistant.repositories.prospects import ProspectsRepository
 
@@ -62,15 +63,34 @@ class LeasingAgentTools:
             "candidates": candidates,
         }
 
-    def get_unit_details(self, unit_id: int) -> dict:
-        """Return authoritative facts for a specific unit."""
-        unit = self.properties.get_unit_details(unit_id)
-        if unit is None:
+    def get_unit_details(self, unit_number: str) -> dict:
+        """Return authoritative facts for a caller-facing unit number."""
+        units = self.properties.get_units_by_number(unit_number)
+        if not units:
             return {
                 "status": "not_found",
-                "unit_id": unit_id,
+                "unit_number": unit_number,
             }
 
+        property_id = (
+            self.state.current_target.target_id
+            if self.state.current_target is not None
+            and self.state.current_target.target_type == "property"
+            else None
+        )
+        if property_id is not None:
+            matching_units = [unit for unit in units if unit.property_id == property_id]
+            if matching_units:
+                units = matching_units
+
+        if len(units) > 1:
+            return {
+                "status": "ambiguous",
+                "unit_number": unit_number,
+                "candidates": [_unit_details(unit) for unit in units],
+            }
+
+        unit = units[0]
         self.state.set_target(
             ResolvedTarget(
                 target_type="unit",
@@ -200,6 +220,9 @@ def _candidate_from_result(
         "match_type": match_type,
         "ambiguous": False,
         "property": _property_summary(property_),
+        "available_units": [
+            _unit_summary(unit) for unit in property_.units if unit.status == "available"
+        ],
         "matched_units": [_unit_summary(unit) for unit in result.matched_units],
     }
 
@@ -211,11 +234,14 @@ def _score_result(
     total_results: int,
 ) -> tuple[str, float]:
     normalized_query = _normalize(query)
+    normalized_unit_number = normalize_unit_number(query)
     property_ = result.property
 
     if _normalize(property_.name) == normalized_query:
         return "property_exact", 0.98
     if any(_normalize(unit.unit_number) == normalized_query for unit in result.matched_units):
+        return "unit_exact", 0.98
+    if any(unit.unit_number == normalized_unit_number for unit in result.matched_units):
         return "unit_exact", 0.98
     if _normalize(property_.name) in normalized_query:
         return "property_name", 0.92

@@ -22,9 +22,9 @@ class WorkerToolSet:
         """Search property and unit records from caller wording."""
         return self.domain_tools.search_properties(query, limit=limit)
 
-    def get_unit_details(self, unit_id: int) -> dict:
-        """Return authoritative facts for a specific unit."""
-        return self.domain_tools.get_unit_details(unit_id)
+    def get_unit_details(self, unit_number: str) -> dict:
+        """Return authoritative facts for a caller-facing unit number."""
+        return self.domain_tools.get_unit_details(unit_number)
 
     def search_knowledge_base(
         self,

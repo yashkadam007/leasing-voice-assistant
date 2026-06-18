@@ -6,6 +6,7 @@ from typing import Any
 from leasing_voice_assistant.core.config import Settings, get_settings
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.providers.llm.base import LLMAdapter
+from leasing_voice_assistant.providers.llm.openai import OpenAILLMAdapter
 from leasing_voice_assistant.providers.llm.openrouter import OpenRouterLLMAdapter
 from leasing_voice_assistant.providers.stt.base import STTAdapter
 from leasing_voice_assistant.providers.stt.deepgram import DeepgramSTTAdapter
@@ -48,6 +49,8 @@ class ProviderFactory:
         """Return the selected LLM adapter without constructing provider SDK clients."""
         if self.settings.llm_provider == "openrouter":
             return OpenRouterLLMAdapter(self.settings)
+        if self.settings.llm_provider == "openai":
+            return OpenAILLMAdapter(self.settings)
         raise ProviderConfigurationError(
             str(self.settings.llm_provider), "LLM", "unsupported LLM_PROVIDER"
         )

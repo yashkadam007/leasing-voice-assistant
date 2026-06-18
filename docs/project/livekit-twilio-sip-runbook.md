@@ -13,6 +13,8 @@ LIVEKIT_API_KEY=...
 LIVEKIT_API_SECRET=...
 DEEPGRAM_API_KEY=...
 OPENROUTER_API_KEY=...
+# Required only when LLM_PROVIDER=openai:
+OPENAI_API_KEY=...
 DATABASE_URL=sqlite:///leasing_voice_assistant.db
 ```
 
@@ -25,7 +27,12 @@ LLM_PROVIDER=openrouter
 DEEPGRAM_STT_MODEL=nova-3
 DEEPGRAM_TTS_MODEL=aura-2-thalia-en
 OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+To compare direct OpenAI against OpenRouter, set `LLM_PROVIDER=openai` and
+`OPENAI_API_KEY`. Switch back with `LLM_PROVIDER=openrouter` and
+`OPENROUTER_API_KEY`.
 
 ## LiveKit SIP Setup
 

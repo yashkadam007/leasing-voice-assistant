@@ -9,6 +9,7 @@ from leasing_voice_assistant.providers.errors import (
     ProviderDependencyError,
 )
 from leasing_voice_assistant.providers.factory import ProviderFactory
+from leasing_voice_assistant.providers.llm.openai import OpenAILLMAdapter
 from leasing_voice_assistant.providers.llm.openrouter import OpenRouterLLMAdapter
 from leasing_voice_assistant.providers.stt import deepgram as stt_deepgram
 from leasing_voice_assistant.providers.stt.deepgram import DeepgramSTTAdapter
@@ -29,21 +30,28 @@ def test_factory_selects_default_adapters_without_credentials() -> None:
 
 
 @pytest.mark.parametrize(
-    ("component", "build_method", "provider", "setting"),
+    ("component", "build_method", "provider", "setting", "settings"),
     [
-        ("STT", "build_stt", "deepgram", "DEEPGRAM_API_KEY"),
-        ("TTS", "build_tts", "deepgram", "DEEPGRAM_API_KEY"),
-        ("LLM", "build_llm", "openrouter", "OPENROUTER_API_KEY"),
+        ("STT", "build_stt", "deepgram", "DEEPGRAM_API_KEY", {}),
+        ("TTS", "build_tts", "deepgram", "DEEPGRAM_API_KEY", {}),
+        ("LLM", "build_llm", "openrouter", "OPENROUTER_API_KEY", {}),
+        ("LLM", "build_llm", "openai", "OPENAI_API_KEY", {"llm_provider": "openai"}),
     ],
 )
 def test_factory_reports_missing_credentials(
-    component: str, build_method: str, provider: str, setting: str
+    component: str,
+    build_method: str,
+    provider: str,
+    setting: str,
+    settings: dict[str, str],
 ) -> None:
     factory = ProviderFactory(
         settings_for_test(
             app_env="test",
             deepgram_api_key=None,
             openrouter_api_key=None,
+            openai_api_key=None,
+            **settings,
         )
     )
 
@@ -126,6 +134,34 @@ def test_factory_builds_openrouter_llm_with_configured_model(monkeypatch) -> Non
         "provider": "openrouter",
         "kwargs": {"api_key": "or-test", "model": "openrouter/test-model"},
     }
+
+
+def test_factory_selects_openai_llm_adapter_when_configured() -> None:
+    factory = ProviderFactory(settings_for_test(app_env="test", llm_provider="openai"))
+
+    assert isinstance(factory.build_llm_adapter(), OpenAILLMAdapter)
+
+
+def test_factory_builds_openai_llm_with_configured_model(monkeypatch) -> None:
+    openai = ModuleType("livekit.plugins.openai")
+
+    class LLM:
+        def __init__(self, **kwargs) -> None:
+            self.kwargs = kwargs
+
+    openai.LLM = LLM
+    monkeypatch.setitem(sys.modules, "livekit.plugins.openai", openai)
+
+    factory = ProviderFactory(
+        settings_for_test(
+            app_env="test",
+            llm_provider="openai",
+            openai_api_key="oa-test",
+            openai_model="gpt-test",
+        )
+    )
+
+    assert factory.build_llm().kwargs == {"api_key": "oa-test", "model": "gpt-test"}
 
 
 def test_worker_exposes_provider_factory_without_constructing_clients() -> None:

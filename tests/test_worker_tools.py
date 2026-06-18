@@ -48,8 +48,10 @@ def test_livekit_tools_are_awaitable_and_preserve_signature() -> None:
         tools = build_worker_tools(session, state)
         livekit_tools = tools.as_livekit_tools()
         search_properties = livekit_tools[0]
+        get_unit_details = livekit_tools[1]
 
         assert inspect.signature(search_properties).parameters.keys() == {"query", "limit"}
+        assert inspect.signature(get_unit_details).parameters.keys() == {"unit_number"}
 
         result = asyncio.run(search_properties(query="Aurora Heights"))
 
