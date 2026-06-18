@@ -24,9 +24,12 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
 
+    database_url: str = "sqlite:///leasing_voice_assistant.db"
+
     livekit_url: str | None = None
     livekit_api_key: str | None = None
     livekit_api_secret: str | None = None
+    livekit_agent_name: str = "Kiara"
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"

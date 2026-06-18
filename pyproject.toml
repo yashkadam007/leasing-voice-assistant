@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
+    "livekit-agents>=1.0.0",
+    "livekit-plugins-deepgram>=1.0.0",
+    "livekit-plugins-openai>=1.0.0",
     "pydantic-settings>=2.6.0",
     "sqlalchemy>=2.0.36",
     "uvicorn[standard]>=0.32.0",
@@ -20,6 +23,7 @@ dev = [
 
 [project.scripts]
 leasing-voice-api = "leasing_voice_assistant.api.main:run"
+leasing-voice-seed = "leasing_voice_assistant.db.seed:main"
 leasing-voice-worker = "leasing_voice_assistant.worker.main:main"
 
 [build-system]

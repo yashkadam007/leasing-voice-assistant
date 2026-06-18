@@ -6,7 +6,13 @@ from decimal import Decimal
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from leasing_voice_assistant.core.config import get_settings
 from leasing_voice_assistant.db.models import Property, Prospect, ProspectInterest, Unit
+from leasing_voice_assistant.db.session import (
+    create_session_factory,
+    create_sqlite_engine,
+    initialize_database,
+)
 
 
 def seed_database(session: Session, *, reset: bool = False) -> None:
@@ -115,3 +121,27 @@ def seed_database(session: Session, *, reset: bool = False) -> None:
 
     session.add_all([aurora, pine])
     session.flush()
+
+
+def main() -> None:
+    """Console entrypoint for loading deterministic local seed data."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Seed the local leasing voice assistant database.")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Delete existing properties, units, prospects, and interests before seeding.",
+    )
+    args = parser.parse_args()
+
+    settings = get_settings()
+    engine = create_sqlite_engine(settings.database_url)
+    initialize_database(engine)
+    session_factory = create_session_factory(engine)
+
+    with session_factory() as session:
+        seed_database(session, reset=args.reset)
+        session.commit()
+
+    print(f"Seeded database at {settings.database_url}.")

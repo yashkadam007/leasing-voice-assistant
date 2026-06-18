@@ -16,8 +16,12 @@ from leasing_voice_assistant.providers.tts.deepgram import DeepgramTTSAdapter
 from leasing_voice_assistant.worker.main import build_provider_factory
 
 
+def settings_for_test(**kwargs) -> Settings:
+    return Settings(_env_file=None, **kwargs)
+
+
 def test_factory_selects_default_adapters_without_credentials() -> None:
-    factory = ProviderFactory(Settings(app_env="test"))
+    factory = ProviderFactory(settings_for_test(app_env="test"))
 
     assert isinstance(factory.build_stt_adapter(), DeepgramSTTAdapter)
     assert isinstance(factory.build_tts_adapter(), DeepgramTTSAdapter)
@@ -35,7 +39,13 @@ def test_factory_selects_default_adapters_without_credentials() -> None:
 def test_factory_reports_missing_credentials(
     component: str, build_method: str, provider: str, setting: str
 ) -> None:
-    factory = ProviderFactory(Settings(app_env="test"))
+    factory = ProviderFactory(
+        settings_for_test(
+            app_env="test",
+            deepgram_api_key=None,
+            openrouter_api_key=None,
+        )
+    )
 
     with pytest.raises(ProviderConfigurationError) as exc_info:
         getattr(factory, build_method)()
@@ -52,7 +62,7 @@ def test_factory_reports_missing_provider_sdk(monkeypatch) -> None:
 
     monkeypatch.setattr(stt_deepgram, "import_module", raise_import_error)
     factory = ProviderFactory(
-        Settings(
+        settings_for_test(
             app_env="test",
             deepgram_api_key="dg-test",
         )
@@ -81,7 +91,7 @@ def test_factory_builds_deepgram_clients_with_configured_models(monkeypatch) -> 
     monkeypatch.setitem(sys.modules, "livekit.plugins.deepgram", deepgram)
 
     factory = ProviderFactory(
-        Settings(
+        settings_for_test(
             app_env="test",
             deepgram_api_key="dg-test",
             deepgram_stt_model="nova-test",
@@ -105,7 +115,7 @@ def test_factory_builds_openrouter_llm_with_configured_model(monkeypatch) -> Non
     monkeypatch.setitem(sys.modules, "livekit.plugins.openai", openai)
 
     factory = ProviderFactory(
-        Settings(
+        settings_for_test(
             app_env="test",
             openrouter_api_key="or-test",
             openrouter_model="openrouter/test-model",
@@ -119,7 +129,7 @@ def test_factory_builds_openrouter_llm_with_configured_model(monkeypatch) -> Non
 
 
 def test_worker_exposes_provider_factory_without_constructing_clients() -> None:
-    factory = build_provider_factory(Settings(app_env="test"))
+    factory = build_provider_factory(settings_for_test(app_env="test"))
 
     assert factory.settings.app_env == "test"
     assert isinstance(factory.build_stt_adapter(), DeepgramSTTAdapter)
