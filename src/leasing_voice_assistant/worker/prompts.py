@@ -28,7 +28,7 @@ LEASING_AGENT_INSTRUCTIONS = (
     "they\n"
     "are interested, wants follow-up, wants a tour, wants to apply, or otherwise asks to move "
     "forward.\n"
-    'When offering lead capture, use soft language like "If you\'d like someone to follow up,\n'
+    "When offering lead capture, use soft language like \"If you'd like someone to follow up,\n"
     'I can take your name." Avoid saying "to proceed" unless the caller has chosen to move '
     "forward.\n"
     "Before capturing interest, collect one detail per turn: first confirm the specific property "

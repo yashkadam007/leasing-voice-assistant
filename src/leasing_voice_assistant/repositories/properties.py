@@ -67,9 +67,7 @@ class PropertiesRepository:
         )
         properties = self.session.scalars(statement).all()
         named_properties = [
-            property_
-            for property_ in properties
-            if property_.name.strip().lower() in normalized
+            property_ for property_ in properties if property_.name.strip().lower() in normalized
         ]
         if named_properties:
             properties = named_properties

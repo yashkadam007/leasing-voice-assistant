@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-DEFAULT_TEMPLATE_PATH = Path("sip-participant.json")
+DEFAULT_TEMPLATE_PATH = Path("sip-participant.example.json")
 DEFAULT_ROOM_PREFIX = "leasing-test-call"
 DEFAULT_PARTICIPANT_PREFIX = "test-caller"
 
