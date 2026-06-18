@@ -2,38 +2,73 @@
 
 ## Current Phase
 
-Milestone 1 implemented. Milestone 2 implemented. Milestone 3 implemented. Milestone 4 implemented. Milestone 5 implemented. Milestone 6 implemented.
+Milestones 1 through 6 are complete. The end-to-end grounded conversation path is implemented in code and documented through manual scenarios, with final submission evidence still pending: a short real-call recording or video and a final smoke test against the configured telephony/provider accounts.
 
 ## Milestone Status
 
 | Milestone | Status | ADR | Implementation | Notes |
 | --- | --- | --- | --- | --- |
-| 1. Project Foundation and Runtime Shape | Complete | Accepted in `docs/project/adr/0001-project-foundation-and-runtime.md` | Implemented | `uv sync --all-groups`, Ruff, Pytest, FastAPI `/health`, and worker import verified. |
-| 2. SQLite Domain Model, Repositories, and Seed Data | Complete | Accepted in `docs/project/adr/0002-sqlite-domain-model-and-seed-data.md` | Implemented | SQLAlchemy ORM models, SQLite initialization helpers, deterministic seed data, and repository tests are in place. |
-| 3. Knowledge Base Retrieval | Complete | Accepted in `docs/project/adr/0003-knowledge-base-retrieval.md` | Implemented | Local markdown KB, deterministic ingestion, lexical retrieval, source metadata, and no-match tests are in place. |
-| 4. Provider Adapter Layer | Complete | Accepted in `docs/project/adr/0004-provider-adapter-layer.md` | Implemented | Thin provider factory with Deepgram STT/TTS and OpenRouter LLM adapters. |
-| 5. Leasing Agent Tools and Safety Gate | Complete | Accepted in `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md` | Implemented | Agent tool domain package, call state, deterministic safety gate, structured tool responses, and capture tests are in place. |
-| 6. LiveKit SIP Call Pipeline | Complete | Accepted in `docs/project/adr/0006-livekit-sip-call-pipeline.md` | Implemented | LiveKit worker entrypoint, SIP metadata mapping, worker tool adapters, prompt defaults, and manual SIP runbook are in place. |
-| 7. End-to-End Grounded Conversation and Prospect Capture | Pending | Not started | Not started | Core assignment journey. |
-| 8. Evaluation, Documentation, and Demo Evidence | Pending | Not started | Not started | Includes call recording/video evidence. |
+| 1. Project Foundation and Runtime Shape | Complete | Accepted in `docs/project/adr/0001-project-foundation-and-runtime.md` | Implemented | `uv`, Ruff, Pytest, FastAPI `/health`, settings, and worker import are in place. |
+| 2. SQLite Domain Model, Repositories, and Seed Data | Complete | Accepted in `docs/project/adr/0002-sqlite-domain-model-and-seed-data.md` | Implemented | SQLAlchemy models, SQLite setup, deterministic seed data, property/unit reads, prospect upsert, and idempotent interest writes are in place. |
+| 3. Knowledge Base Retrieval | Complete | Accepted in `docs/project/adr/0003-knowledge-base-retrieval.md` | Implemented | Local markdown KB, deterministic ingestion, lexical retrieval, source metadata, and no-match behavior are in place. |
+| 4. Provider Adapter Layer | Complete | Accepted in `docs/project/adr/0004-provider-adapter-layer.md` | Implemented | Thin provider factory with Deepgram STT/TTS and OpenRouter/OpenAI LLM adapters. |
+| 5. Leasing Agent Tools and Safety Gate | Complete | Accepted in `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md` | Implemented | `search_properties`, `get_unit_details`, `search_knowledge_base`, `capture_prospect_interest`, `CallState`, and deterministic capture safety are in place. |
+| 6. LiveKit SIP Call Pipeline | Complete | Accepted in `docs/project/adr/0006-livekit-sip-call-pipeline.md` | Implemented | LiveKit worker, SIP metadata mapping, provider setup, tool adapters, prompt defaults, turn handling, realtime diagnostics, and SIP runbook are in place. |
+| 7. End-to-End Grounded Conversation and Prospect Capture | Mostly complete | Covered by previous ADRs and scenario docs | Implemented locally; needs final real-call proof | Manual scenarios define expected grounded answers, clarification behavior, safe capture, and verification through `/prospects`. |
+| 8. Evaluation, Documentation, and Demo Evidence | In progress | Not planned as a separate ADR | Documentation updated; recording pending | README, architecture, implementation plan, runbook, scenarios, and readiness review are present. Final recording/video remains. |
+
+## Implemented Assignment Requirements
+
+- Real voice-call runtime path through LiveKit SIP/Twilio and a separate LiveKit worker.
+- Grounded property and unit answers from SQLite through repository-backed tools.
+- Local knowledge retrieval for policy, process, FAQ, and property narrative answers.
+- Prospect capture by phone number with idempotent interest creation.
+- Code-enforced safety gate before any prospect-interest write.
+- Read-only `GET /prospects` endpoint for reviewer verification.
+- Credential-free linting, tests, imports, and `/health`.
+- Planning and architecture markdown covering approach, audio pipeline, tools, database reads/writes, knowledge choice, property resolution, prospect capture, safety, tradeoffs, and future work.
+
+## Remaining Submission Tasks
+
+- Configure real LiveKit, Twilio, Deepgram, and OpenRouter/OpenAI credentials in the target environment.
+- Run the worker and place a real inbound call using `docs/project/livekit-twilio-sip-runbook.md`.
+- Record a short call or video that demonstrates grounded answers and safe prospect capture.
+- Verify the captured prospect through `GET /prospects` or the documented SQLite query.
+- Run final quality checks before submission:
+
+```sh
+uv run ruff format --check .
+uv run ruff check .
+uv run pytest
+```
 
 ## Decisions Captured
 
 | Decision | Status | Notes |
 | --- | --- | --- |
-| Use LiveKit Agents as the voice agent framework | Decided | Requested by project owner. |
-| Use LiveKit SIP/Twilio for primary telephony | Decided | Browser fallback is optional, not primary. |
-| Use SQLite for application data | Decided | Keeps clean-checkout setup simple. |
-| Use Deepgram for STT and TTS by default | Decided | Provider adapter layer should keep this swappable. |
-| Use OpenRouter for LLM by default | Decided | OpenAI-compatible adapter should make model experiments easy. |
-| Use provider adapters for STT/TTS/LLM | Decided | Avoid coupling the worker to concrete providers. |
-| Use local FTS/ranker for initial knowledge retrieval | Decided | Vector retrieval is deferred and can be added later behind the retrieval service boundary. |
-| Enforce prospect capture safety inside the agent tool layer | Decided | Prompt guidance is not enough; `capture_prospect_interest` must reject unsafe writes in code. |
+| Use LiveKit Agents as the voice agent framework | Decided | Keeps realtime session handling in the worker and aligns with the assignment preference. |
+| Use LiveKit SIP/Twilio for primary telephony | Decided | Browser fallback is optional future work, not the primary path. |
+| Keep FastAPI out of the audio path | Decided | API is limited to health and read-only verification. |
+| Use SQLite for application data | Decided | Keeps clean-checkout setup simple and reviewable. |
+| Use local markdown lexical retrieval for the KB | Decided | Deterministic, credential-free, and adequate for the small corpus. |
+| Use Deepgram for STT and TTS by default | Decided | Built behind provider adapters. |
+| Use OpenRouter for LLM by default, with OpenAI as an option | Decided | OpenAI-compatible integration keeps model experiments easy. |
+| Enforce prospect capture safety inside the tool layer | Decided | Prompt instructions are not trusted as the only write guard. |
+| Use phone number as prospect identity key | Decided | Matches the brief and keeps duplicate handling simple. |
+
+## Known Limitations
+
+- Final voice quality and latency still need to be validated from a recorded real call.
+- The knowledge layer is lexical, so broad paraphrase coverage is weaker than a vector or hybrid search approach.
+- Call transcripts and tool events are logged but not persisted as first-class database records.
+- `prospect_interests` does not yet include explicit `source` or `status` columns from the brief's sample schema.
+- There is no browser-based voice fallback for reviewers without telephony credentials.
 
 ## Open Questions
 
-- Should email capture be attempted during the call or left optional unless the caller offers it?
+- Should email capture remain opportunistic, or should the assistant ask for it during every successful capture?
+- Should `prospect_interests` add explicit `source` and `status` fields before final submission, or is the current minimal schema acceptable for the assignment?
 
 ## Next Action
 
-Begin Milestone 7 end-to-end grounded conversation and prospect capture planning.
+Run a final voice smoke test with real credentials, capture the required recording/video, and verify the resulting prospect row.

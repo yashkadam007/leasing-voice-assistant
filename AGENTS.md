@@ -6,11 +6,11 @@ Leasing voice assistant with a FastAPI control plane and a separate LiveKit work
 
 ## Commands
 
-- Setup: `UV_CACHE_DIR=.uv-cache uv sync --all-groups`
-- Format: `UV_CACHE_DIR=.uv-cache uv run ruff format .`
-- Lint: `UV_CACHE_DIR=.uv-cache uv run ruff check .`
-- Test: `UV_CACHE_DIR=.uv-cache uv run pytest`
-- API: `UV_CACHE_DIR=.uv-cache uv run uvicorn leasing_voice_assistant.api.main:app --reload`
+- Setup: `uv sync --all-groups`
+- Format: `uv run ruff format .`
+- Lint: `uv run ruff check .`
+- Test: `uv run pytest`
+- API: `uv run uvicorn leasing_voice_assistant.api.main:app --reload`
 
 ## Guidelines
 

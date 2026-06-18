@@ -2,179 +2,289 @@
 
 ## Purpose
 
-This project implements a real-time leasing voice assistant for inbound phone calls. A prospective renter calls a phone number, speaks with a voice AI agent, asks grounded questions about available units and leasing policies, and can be registered as a prospect once the agent has enough confidence in the caller and property details.
+This repository implements a focused leasing voice assistant for inbound calls. A prospective renter can ask about seeded properties and units, get answers grounded in local data, and be captured as a prospect only after the assistant has a confident property or unit target, caller identity, and explicit interest confirmation.
 
-The implementation will use LiveKit Agents for the realtime voice loop, LiveKit SIP with Twilio for telephony, SQLite for application data, Deepgram for speech-to-text and text-to-speech, and OpenRouter for the LLM through a thin provider adapter layer.
+The center of the system is the voice worker. FastAPI exists only as a small control plane for health and reviewer verification; it is not in the realtime audio path.
 
-## High-Level Flow
+## Approach
+
+The implementation is intentionally small and local-first:
+
+- LiveKit Agents owns the realtime voice session and room lifecycle.
+- Twilio routes inbound phone calls into LiveKit SIP.
+- Deepgram provides speech-to-text and text-to-speech.
+- OpenRouter or OpenAI provides the LLM through a provider adapter.
+- SQLite stores authoritative structured leasing data and prospect writes.
+- Local markdown files provide policy, FAQ, and narrative knowledge through deterministic lexical retrieval.
+- Agent tools are narrow, structured, and testable without voice or provider credentials.
+
+This keeps the assignment focused on the voice agent, grounded answers, property resolution, and safe prospect capture rather than on a CRM, admin UI, or hosted retrieval infrastructure.
+
+## Call And Audio Pipeline
 
 ```text
 Caller
   -> Twilio phone number
   -> LiveKit SIP inbound trunk
-  -> LiveKit room
-  -> LiveKit Python agent worker
-     -> Deepgram STT adapter
-     -> OpenRouter LLM adapter
-     -> Leasing tools
-        -> SQLite property/prospect database
-        -> local knowledge-base retrieval
-     -> Deepgram TTS adapter
-  -> caller hears response
+  -> LiveKit room/job
+  -> LiveKit Python worker
+     -> parse SIP/call metadata into CallState
+     -> build Deepgram STT
+     -> build OpenRouter/OpenAI LLM
+     -> register leasing tools
+     -> build Deepgram TTS
+     -> run LiveKit AgentSession with turn handling
+  -> caller hears the spoken response
 
 FastAPI control plane
-  -> health
-  -> database setup and seed helpers
-  -> minimal prospect verification endpoint
+  -> GET /health
+  -> GET /prospects for read-only demo verification
 ```
+
+Runtime responsibilities:
+
+- Twilio provides the phone number and SIP routing.
+- LiveKit SIP converts the phone call into a LiveKit room participant.
+- The worker joins the assigned LiveKit job, waits for the caller participant, and extracts caller metadata such as phone number and call identifiers when available.
+- LiveKit AgentSession streams caller audio through STT, sends turns and tool calls through the LLM, and returns assistant text through TTS.
+- Turn handling is configured centrally in `worker/main.py` with interruption support and conservative endpointing defaults for short leasing conversations.
+
+FastAPI is deliberately separate. A failed or stopped API should not be part of the audio loop once the worker is handling LiveKit jobs.
 
 ## Runtime Components
 
-### LiveKit SIP and Twilio
+### LiveKit Worker
 
-Twilio provides the phone number and routes inbound calls to LiveKit SIP. LiveKit creates or joins a room for the call. The LiveKit agent worker joins that room as an AI participant and handles the bidirectional audio conversation.
+The worker is the primary runtime. It:
 
-The SIP path is the primary delivery path for the assignment. A browser-based LiveKit room can be added later as a developer fallback, but it is not the core target.
+- validates LiveKit settings when the real worker starts
+- creates the SQLite engine and seeds local data at job startup
+- builds STT, LLM, and TTS clients through `ProviderFactory`
+- converts SIP metadata into `CallState`
+- wraps domain tools as LiveKit function tools
+- starts a LiveKit `AgentSession` with leasing-specific instructions
+- logs transcripts, tool execution summaries, assistant responses, and session lifecycle events
 
-### LiveKit Agent Worker
+The worker package is under `src/leasing_voice_assistant/worker/`:
 
-The worker owns the realtime conversation:
-
-- joins assigned LiveKit rooms
-- parses SIP/call metadata
-- initializes STT, LLM, TTS, VAD, and turn detection
-- registers leasing-specific tools
-- maintains per-call conversation state
-- speaks short, natural, grounded answers
-- calls the prospect capture tool only after safety checks pass
-
-The worker should depend on provider interfaces rather than concrete provider SDKs directly.
+- `main.py`: LiveKit entrypoint, provider/session setup, turn handling, and realtime diagnostics.
+- `call_context.py`: defensive room and participant metadata extraction.
+- `prompts.py`: leasing-specific voice instructions.
+- `tools.py`: LiveKit tool adapters around domain tools.
 
 ### FastAPI Control Plane
 
-FastAPI is intentionally small. It should not become a CRM, admin app, or observability surface. Its responsibilities are limited to what helps a reviewer run and verify the assignment:
+FastAPI stays intentionally small:
 
-- health checks
-- database initialization support
-- seed-data support
-- one read-only verification endpoint for prospects and interests, if useful for demo review
+- `GET /health` verifies the app can start without provider credentials.
+- `GET /prospects` returns recently updated prospects and interests for demo verification.
 
-LiveKit token, dispatch, call-history, transcript, and tool-event endpoints are deferred unless they become necessary to place and verify the demo call.
+The API does not dispatch calls, proxy audio, or implement a CRM.
 
-### SQLite Application Database
+### SQLite Database
 
-SQLite stores authoritative structured data:
+SQLite is the source of truth for structured facts and prospect writes. The schema covers:
 
-- properties
-- units
-- prospects
-- prospect interests
+- `properties`: property name, address, city/state, phone, description, pet policy, parking policy, application fee, security deposit, and lease terms.
+- `units`: unit number, bedrooms, bathrooms, rent, square footage, availability date, status, floor, view, and notes.
+- `prospects`: normalized caller phone number, name, email, and timestamps.
+- `prospect_interests`: idempotent interest in exactly one property or one unit.
 
-The agent must use structured database tools for exact property facts such as rent, bedrooms, availability, parking, pet policy, and unit status.
+The database is accessed through repository classes, not raw SQL in prompts or worker code.
 
-### Knowledge Base
+## Agent Tools And Database Flow
 
-The knowledge base stores less structured leasing content:
+The LLM receives four leasing tools through the worker adapter. The actual behavior lives in `LeasingAgentTools`, which keeps it unit-testable outside LiveKit.
 
-- application process
-- deposits
-- lease terms
-- general pet rules
-- property descriptions
-- FAQ content
+### `search_properties`
 
-Initial retrieval should use local files plus SQLite FTS or a lightweight lexical ranker. The knowledge base is intentionally small: one or two property fact/narrative files plus a general leasing FAQ are enough if answers remain grounded and unknowns are handled gracefully. Vector retrieval is deferred because the assignment values a working, natural voice agent over broad retrieval infrastructure.
+Purpose: resolve caller wording to a property or unit candidate.
 
-## Provider Adapter Architecture
-
-Provider implementations should be replaceable where the LiveKit worker builds STT, TTS, and LLM clients. The first implementation only needs Deepgram STT, Deepgram TTS, and OpenRouter LLM. The adapter layer exists to keep provider SDK details out of the worker, not to support every provider up front.
-
-Proposed package shape:
+Read path:
 
 ```text
-app/providers/
-  stt/
-    base.py
-    deepgram.py
-  tts/
-    base.py
-    deepgram.py
-  llm/
-    base.py
-    openrouter.py
-  factory.py
+LLM tool call
+  -> WorkerToolSet.search_properties
+  -> LeasingAgentTools.search_properties
+  -> PropertiesRepository.search
+  -> properties + units tables
 ```
 
-Each adapter exposes a small build contract:
+Behavior:
 
-```python
-class STTProvider(Protocol):
-    def build(self) -> object: ...
+- Searches property names, address, city, description, unit number, unit status, unit view, and unit notes.
+- Normalizes spoken unit phrases such as "unit eight A" to `8A`.
+- Scores exact property and unit matches highly.
+- Stores the best target in `CallState`.
+- Marks multiple candidates as ambiguous so capture remains blocked until clarified.
 
-class TTSProvider(Protocol):
-    def build(self) -> object: ...
+### `get_unit_details`
 
-class LLMProvider(Protocol):
-    def build(self) -> object: ...
+Purpose: retrieve authoritative unit facts.
+
+Read path:
+
+```text
+LLM tool call
+  -> WorkerToolSet.get_unit_details
+  -> LeasingAgentTools.get_unit_details
+  -> PropertiesRepository.get_units_by_number
+  -> units table joined to property
 ```
 
-The factory selects implementations from environment variables:
+Behavior:
 
-```env
-STT_PROVIDER=deepgram
-TTS_PROVIDER=deepgram
-LLM_PROVIDER=openrouter
+- Returns rent, bedrooms, bathrooms, square footage, availability, status, floor, view, notes, and property-level policies.
+- Uses current property context to disambiguate duplicate unit numbers when possible.
+- Updates `CallState` to a unit target when exactly one unit is resolved.
+
+Exact facts such as rent, bedrooms, availability, parking, pet policy, and status should come from this structured data path.
+
+### `search_knowledge_base`
+
+Purpose: answer policy, process, FAQ, and narrative questions with source-backed snippets.
+
+Read path:
+
+```text
+LLM tool call
+  -> WorkerToolSet.search_knowledge_base
+  -> LeasingAgentTools.search_knowledge_base
+  -> KnowledgeBase.search
+  -> data/knowledge/*.md chunks
 ```
 
-## Agent Tool Boundaries
+Behavior:
 
-The agent should have narrow, explicit tools:
+- Searches local markdown chunks.
+- Returns snippet text plus source path, document title, section, chunk id, and optional property identifier.
+- Supports property filtering when the caller's target property is known.
+- Returns `no_match` when the score is below threshold so the agent can say the information is not available.
 
-- `search_properties`: find matching properties or units from caller wording.
-- `get_unit_details`: read authoritative unit facts.
-- `search_knowledge_base`: retrieve policy/process/FAQ content.
-- `capture_prospect_interest`: create or update a prospect and interest after safety checks.
-- optional `end_conversation`: close the call politely only if it maps to real LiveKit call control; otherwise this remains a prompt behavior.
+### `capture_prospect_interest`
 
-Tools should return structured data and enough source context for the agent to answer without guessing.
+Purpose: create or update the caller as a prospect and record interest only after safety checks pass.
 
-## Prospect Capture Safety
+Write path:
 
-The prospect write path must be gated. The capture tool should reject writes unless:
+```text
+LLM tool call
+  -> WorkerToolSet.capture_prospect_interest
+  -> LeasingAgentTools.capture_prospect_interest
+  -> evaluate_capture_safety
+  -> ProspectsRepository.upsert_by_phone
+  -> ProspectsRepository.create_interest
+  -> prospects + prospect_interests tables
+  -> commit in worker adapter
+```
 
-- caller phone number is available from SIP metadata or equivalent call context
-- caller name is known or explicitly confirmed
-- property or unit resolution confidence meets the threshold
-- the caller has indicated interest in that property/unit
-- ambiguity has been resolved through a clarification question
+Behavior:
 
-Rejected writes should return structured reasons such as `missing_name`, `ambiguous_property`, `low_confidence`, or `needs_confirmation`.
+- Stores caller name/email in `CallState` when provided.
+- Sets confirmed interest only when the tool input says interest was confirmed.
+- Rejects unsafe writes before touching the database.
+- Upserts prospects by normalized phone number.
+- Creates idempotent interest rows for the resolved property or unit.
+- Rolls back on exceptions and commits only successful captures.
+
+## Knowledge Layer
+
+The knowledge base uses local markdown files in `data/knowledge/` and deterministic lexical ranking in `KnowledgeBase`.
+
+Why this choice:
+
+- The assignment has a small corpus with one or two properties and a general FAQ.
+- Local files are easy for reviewers to inspect.
+- Lexical retrieval is deterministic and testable without external services.
+- It avoids requiring embedding credentials or a hosted vector database.
+- It is sufficient for policy/process questions where terms are predictable.
+
+The tradeoff is semantic recall. A vector index would handle more paraphrases and a larger corpus better. The current boundary makes that a future replacement behind `KnowledgeBase.search` rather than a change to the agent or worker tool contracts.
+
+## Property Resolution Logic
+
+Property resolution is deterministic and conservative:
+
+- Direct property-name matches produce high-confidence property targets.
+- Exact unit-number matches produce high-confidence unit targets.
+- A single lexical candidate can be used with moderate confidence.
+- Multiple candidates are marked ambiguous.
+- Ambiguous targets are stored only as provisional state and are not eligible for capture.
+- The prompt instructs the assistant to ask short clarification questions when property identity is unclear.
+
+The confidence values are code-level inputs to the safety gate, not just prose guidance for the LLM.
+
+## Prospect Capture Logic
+
+Prospect capture is a two-step conversational flow:
+
+1. Resolve the property or unit from database-backed tools.
+2. Capture interest only after the caller provides or confirms required details.
+
+The required details are:
+
+- caller phone number from SIP metadata or equivalent call context
+- caller name
+- current property or unit target
+- target confidence at or above the threshold
+- ambiguity resolved
+- explicit caller interest or follow-up confirmation
+
+Phone numbers are normalized in `ProspectsRepository.upsert_by_phone`, so repeat calls from the same number update the existing prospect instead of creating duplicates. Interest rows are unique per prospect and property or unit, so repeated capture for the same target is idempotent.
+
+## Confidence And Safety Check
+
+The safety gate is implemented in `evaluate_capture_safety`, not just in the prompt. A write is rejected when any of these conditions apply:
+
+- `missing_phone`
+- `missing_name`
+- `missing_target`
+- `low_confidence`
+- `ambiguous_property`
+- `needs_confirmation`
+
+The default confidence threshold is `0.8`. Rejections return structured reasons to the LLM so the assistant can ask for the specific missing detail instead of guessing or writing a bad record.
+
+This is the main safety boundary in the project: even if the LLM calls the write tool too early, the code blocks the database write.
 
 ## Grounding Rules
 
-The agent must:
+The assistant is expected to:
 
 - use SQLite tools for exact property and unit facts
-- use the knowledge retrieval tool for leasing policies and broader FAQ answers
-- say when a fact is unavailable
-- ask short clarification questions when property identity is ambiguous
-- avoid recording interest until the safety gate passes
+- use knowledge retrieval for policies, leasing process, FAQ answers, and richer descriptions
+- keep responses short enough for voice
+- say when the available data does not contain an answer
+- ask a clarification question when the property or unit is ambiguous
+- avoid prospect capture unless the safety gate allows it
 
-## Key Tradeoffs
+## Key Decisions And Tradeoffs
 
-- **LiveKit SIP over direct Twilio media streaming:** LiveKit gives a higher-level realtime agent loop and room model, which should reduce audio plumbing risk. Direct Twilio media streaming remains a reasonable fallback, but it would put more call-state and audio handling code in this repository.
-- **SQLite and local retrieval over hosted services:** SQLite and local KB search keep the demo runnable from a clean checkout with fewer credentials. This is sufficient for one or two properties and keeps attention on grounded voice behavior.
-- **Thin adapters over broad provider support:** The worker should not be tangled with provider SDK details, but extra provider stubs are deferred. A small working Deepgram/OpenRouter path is more valuable than unused abstraction.
-- **Minimal FastAPI over admin/debug tooling:** Reviewers need to run the app, place a call, and verify a prospect was written. Anything beyond that risks turning the project into a CRM, which the brief explicitly excludes.
+- **LiveKit SIP over direct Twilio media streaming:** LiveKit reduces custom audio transport and turn-taking code. Direct Twilio streaming would give lower-level control but would increase assignment risk.
+- **Separate worker and API:** The worker owns realtime calls; FastAPI stays easy to run and credential-free for `/health`.
+- **SQLite over hosted database:** SQLite keeps the project runnable from a clean checkout and is enough for seeded demo data. A production deployment would move to Postgres and migrations.
+- **Local markdown retrieval over vector search:** Deterministic local retrieval is transparent and credential-free. Vector retrieval is deferred until corpus size or paraphrase coverage requires it.
+- **Code-enforced safety over prompt-only safety:** The LLM can guide the conversation, but database writes must be rejected by deterministic code when required details are missing.
+- **Provider adapters over direct SDK coupling:** The worker can swap Deepgram/OpenRouter/OpenAI configuration without spreading SDK details through the codebase.
+- **No admin UI:** Reviewer verification is handled by `/prospects` and SQLite queries because the brief does not ask for a CRM.
 
-## Key Architectural Influences
+## What I Would Do With More Time
 
-The architecture borrows from `/Users/yash/stratex/bitbucket/voice-ai`:
+- Capture and include a short real-call recording or video as final demo evidence.
+- Add an automated evaluation harness over `docs/project/TEST_CONVERSATION_SCENARIOS.md`, including an LLM-as-judge rubric for grounding, tool choice, safety, and voice concision.
+- Persist call transcripts and tool events for post-call review and regression analysis.
+- Add explicit `source` and `status` columns to `prospect_interests` to match the brief's sample schema more closely.
+- Add migrations, likely Alembic, if the schema starts evolving beyond the assignment.
+- Add a browser-based LiveKit voice fallback for reviewers without telephony credentials.
+- Move knowledge retrieval to embeddings or hybrid lexical/vector retrieval if the corpus grows.
+- Tune voice latency and barge-in settings from real call recordings rather than unit-test assumptions.
 
-- FastAPI control plane
-- separate LiveKit worker
-- LiveKit dispatch/metadata pattern
-- service and repository boundaries
-- testable tool layer
+## Architectural Influences
 
-It deliberately omits the reference app's broader agent registry/admin scope until needed.
+The architecture follows the project guidance in `AGENTS.md`:
+
+- keep the voice agent, grounded property answers, and safe prospect capture central
+- use a `src/` package layout
+- keep API and worker as separate runtime entrypoints
+- avoid requiring provider or telephony credentials for linting, tests, or `/health`
+- make milestone-scoped decisions through ADRs in `docs/project/adr/`

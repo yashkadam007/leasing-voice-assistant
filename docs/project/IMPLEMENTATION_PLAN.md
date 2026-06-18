@@ -1,281 +1,248 @@
 # Leasing Voice Assistant Implementation Plan
 
-## Milestone Overview
+## Planning Approach
 
-The project will be implemented through architecture decision records and milestone-specific implementation passes. Each milestone should get an ADR first, using the Tyree and Akerman decision record structure provided by the project owner. After the ADR is accepted, implementation should follow that ADR.
+The project was built as a sequence of small milestones, each captured by an ADR before or alongside implementation. The goal was to reduce risk in the order that matters for the assignment:
 
-## ADR Template
+1. Establish a runnable Python project with separate API and worker entrypoints.
+2. Build the local data model before the agent so property facts and prospect writes have a stable contract.
+3. Add local knowledge retrieval for policy and FAQ answers.
+4. Hide provider SDK details behind adapters.
+5. Implement the agent tools and safety gate outside LiveKit so they can be tested deterministically.
+6. Connect the tested tool layer to the LiveKit SIP voice worker.
+7. Document the end-to-end scenarios, verification path, tradeoffs, and remaining demo evidence.
 
-Each milestone ADR should use these sections:
+This order keeps the voice agent central while avoiding a common failure mode: wiring telephony first and then discovering that grounding, state, and safe writes are hard to test.
 
-- Issue
-- Decision
-- Status
-- Group
-- Assumptions
-- Constraints
-- Positions
-- Argument
-- Implications
-- Related decisions
-- Related requirements
-- Related artifacts
-- Related principles
-- Notes
+## Milestone Summary
 
-ADR files should live under:
-
-```text
-docs/project/adr/
-```
-
-Suggested naming:
-
-```text
-0001-project-foundation-and-runtime.md
-0002-sqlite-domain-model-and-seed-data.md
-0003-livekit-sip-call-pipeline.md
-```
+| Milestone | Result | Main Artifacts |
+| --- | --- | --- |
+| 1. Project Foundation and Runtime Shape | Complete | `pyproject.toml`, `src/` layout, FastAPI `/health`, worker import, Ruff, Pytest |
+| 2. SQLite Domain Model, Repositories, and Seed Data | Complete | SQLAlchemy models, repositories, `leasing-voice-seed`, deterministic seeded properties |
+| 3. Knowledge Base Retrieval | Complete | Markdown KB files, ingestion, lexical ranking, source metadata |
+| 4. Provider Adapter Layer | Complete | Deepgram STT/TTS adapters, OpenRouter/OpenAI LLM adapters, provider factory |
+| 5. Leasing Agent Tools and Safety Gate | Complete | `LeasingAgentTools`, `CallState`, `evaluate_capture_safety`, capture tests |
+| 6. LiveKit SIP Call Pipeline | Complete | LiveKit worker entrypoint, SIP metadata parsing, tool adapters, runbook |
+| 7. End-to-End Grounded Conversation and Prospect Capture | Implemented locally; real-call recording still needed | prompt, tool flow, manual scenarios, `/prospects` verification |
+| 8. Evaluation, Documentation, and Demo Evidence | Documentation updated; recording remains | architecture docs, README, scenario guide, readiness review |
 
 ## Milestone 1: Project Foundation and Runtime Shape
 
-Goal: create a clean Python project skeleton that can support the rest of the system.
+Goal: create a clean Python project skeleton that can support a FastAPI control plane and separate LiveKit worker.
 
-Scope:
+Implemented:
 
 - `uv` Python project setup
-- package layout for FastAPI app and LiveKit worker
-- linting and formatting with Ruff
-- test setup with Pytest
-- environment configuration model
-- `.env.example`
-- initial README run instructions
-- docs/project status discipline
+- `src/leasing_voice_assistant/` package layout
+- Ruff formatting and linting
+- Pytest setup
+- settings model for environment variables
+- FastAPI `/health`
+- importable worker entrypoint
 
-Primary decision topics:
+Exit criteria met:
 
-- package layout
-- dependency management
-- configuration strategy
-- whether worker and API live in one repository and one process model
+- project installs from a clean checkout
+- lint and test commands exist
+- `/health` runs without provider credentials
+- worker module imports without provider credentials
 
-Exit criteria:
-
-- project installs from clean checkout
-- lint/test commands exist
-- empty FastAPI health endpoint runs
-- empty worker entrypoint imports
-- status file reflects completion
+ADR: `docs/project/adr/0001-project-foundation-and-runtime.md`
 
 ## Milestone 2: SQLite Domain Model, Repositories, and Seed Data
 
 Goal: create the authoritative local data layer for properties, units, prospects, and interests.
 
-Scope:
+Implemented:
 
-- SQLite schema
-- SQLAlchemy models or explicit SQL repository layer
-- seed data for one or two leasing properties
-- repository methods for property search, unit detail lookup, prospect upsert, and interest creation
-- focused tests for data behavior
+- SQLAlchemy models for properties, units, prospects, and prospect interests
+- SQLite initialization helpers
+- deterministic seed data for Aurora Heights and Pine Garden Flats
+- `PropertiesRepository` for property/unit reads
+- `ProspectsRepository` for phone-based prospect upsert and idempotent interest creation
+- repository tests for search, exact facts, upsert, and duplicate-interest behavior
 
-Primary decision topics:
+Important decisions:
 
-- migration approach for SQLite
-- schema shape
-- repository boundary
-- prospect matching and dedupe rules
+- SQLite is enough for the assignment and keeps setup local.
+- Repositories keep database details out of prompts and worker orchestration.
+- Interest rows target exactly one property or one unit.
+- Prospect matching is by normalized phone number.
 
-Exit criteria:
-
-- database can be initialized locally
-- seed data loads deterministically
-- tests prove prospect upsert by phone
-- tests prove duplicate interest behavior
-- tests prove exact unit fact retrieval
+ADR: `docs/project/adr/0002-sqlite-domain-model-and-seed-data.md`
 
 ## Milestone 3: Knowledge Base Retrieval
 
-Goal: build simple local retrieval for leasing FAQs and property narrative content.
+Goal: answer policy, process, FAQ, and richer property-description questions from source-backed local content.
 
-Scope:
+Implemented:
 
-- markdown or structured KB source files
-- ingestion into local searchable form
-- SQLite FTS or lightweight lexical ranker
-- retrieval service and `search_knowledge_base` tool implementation
-- tests for policy/process questions
+- markdown source files under `data/knowledge/`
+- deterministic ingestion into chunks
+- lexical retrieval with token normalization, synonym handling, phrase bonuses, and source metadata
+- no-match behavior for unsupported questions
+- retrieval tests for relevant and irrelevant queries
 
-Primary decision topics:
+Important decisions:
 
-- local FTS versus vector retrieval
-- minimal document chunking approach
-- source metadata needed for grounded answers
-- fallback behavior for unknown answers
+- Local markdown keeps the knowledge layer reviewer-readable.
+- Lexical retrieval is deterministic and credential-free.
+- Vector retrieval is deferred because the corpus is small and the core evaluation is the voice-agent flow.
 
-Exit criteria:
-
-- KB can answer application, deposit, pet, parking, and lease-term questions
-- retrieval returns source metadata
-- unknown questions return no-match or low-confidence result
-- tests cover relevant and irrelevant queries
-- vector retrieval and broad search infrastructure are explicitly deferred
+ADR: `docs/project/adr/0003-knowledge-base-retrieval.md`
 
 ## Milestone 4: Provider Adapter Layer
 
-Goal: keep STT, TTS, and LLM provider details out of the LiveKit worker without building unused provider support.
+Goal: keep STT, TTS, and LLM provider construction out of the worker.
 
-Scope:
+Implemented:
 
-- STT provider interface
-- TTS provider interface
-- LLM provider interface
+- provider interfaces
 - Deepgram STT adapter
 - Deepgram TTS adapter
 - OpenRouter LLM adapter
-- provider factory driven by environment variables
+- OpenAI LLM adapter
+- provider factory selected by environment variables
+- missing-credential errors that do not affect local tests or imports
 
-Primary decision topics:
+Important decisions:
 
-- adapter contract
-- environment variable naming
-- OpenRouter OpenAI-compatible integration
-- how little of LiveKit's provider-specific SDK surface to expose
+- Default STT/TTS provider is Deepgram.
+- Default LLM provider is OpenRouter.
+- OpenAI is available as a direct alternative.
+- The abstraction is intentionally thin; it exists to isolate SDK construction, not to build a provider marketplace.
 
-Exit criteria:
-
-- worker can build STT/LLM/TTS through the factory
-- default config is Deepgram STT, Deepgram TTS, OpenRouter LLM
-- missing credential errors are explicit
-- unit tests cover provider selection
-- no unused future-provider stubs are required for the submission
+ADR: `docs/project/adr/0004-provider-adapter-layer.md`
 
 ## Milestone 5: Leasing Agent Tools and Safety Gate
 
-Goal: implement the agent's tool layer and prospect capture safety logic.
+Goal: implement the domain tool layer that the LLM can call during a voice conversation.
 
-Scope:
+Implemented tools:
 
 - `search_properties`
 - `get_unit_details`
 - `search_knowledge_base`
 - `capture_prospect_interest`
-- optional `end_conversation` only if needed for real LiveKit call control
-- per-call state model
-- confidence and confirmation checks before writes
-- tests for tool behavior and rejected writes
 
-Primary decision topics:
+Tool read/write behavior:
 
-- property-resolution confidence scoring
-- what counts as confirmed interest
-- required prospect fields
-- tool return schema
+- Property and unit search reads through `PropertiesRepository`.
+- Exact unit facts read from SQLite.
+- Policy and FAQ answers read from `KnowledgeBase`.
+- Prospect capture writes through `ProspectsRepository` only after `evaluate_capture_safety` allows it.
 
-Exit criteria:
+Safety gate requirements:
 
-- factual property answers come from SQLite tools
-- broader policy answers come from KB tool
-- capture tool rejects ambiguous/unsafe writes
-- capture tool creates or updates prospect when safety passes
-- tests cover ambiguous property, missing name, missing phone, and valid capture
+- caller phone number is present
+- caller name is present
+- a property or unit target is resolved
+- confidence is at least `0.8`
+- ambiguity is resolved
+- caller explicitly confirmed interest
+
+Rejected writes return structured reasons such as `missing_phone`, `missing_name`, `missing_target`, `low_confidence`, `ambiguous_property`, and `needs_confirmation`.
+
+ADR: `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md`
 
 ## Milestone 6: LiveKit SIP Call Pipeline
 
-Goal: connect the worker to real inbound LiveKit SIP/Twilio calls.
+Goal: connect the tested domain tool layer to a real voice worker.
 
-Scope:
+Implemented:
 
 - LiveKit worker entrypoint
-- SIP metadata parsing
-- room/call lifecycle handling
-- Deepgram STT/TTS and OpenRouter LLM through adapters
-- VAD and turn detection configuration
-- inbound call instructions
-- local runbook for Twilio and LiveKit SIP setup
+- LiveKit credential validation when starting the real worker
+- call metadata extraction into `CallState`
+- provider client construction through `ProviderFactory`
+- call-scoped tool wrappers for LiveKit function tools
+- turn handling defaults with interruption support
+- realtime session diagnostics for transcripts, assistant responses, tool execution, errors, and close events
+- LiveKit/Twilio SIP runbook
 
-Primary decision topics:
+Important decisions:
 
-- inbound dispatch strategy
-- call metadata mapping
-- turn detection defaults
-- latency versus quality tradeoffs
+- LiveKit owns room, participant, audio, and realtime session lifecycle.
+- FastAPI is not in the audio path.
+- Missing phone metadata should block capture through the safety gate rather than crash the call.
+- A hangup tool is deferred until there is a concrete LiveKit call-control action worth exposing.
 
-Exit criteria:
-
-- inbound phone call reaches LiveKit room
-- worker joins and speaks
-- caller can ask multiple questions
-- agent can use tools during a call
-- call can end politely
+ADR: `docs/project/adr/0006-livekit-sip-call-pipeline.md`
 
 ## Milestone 7: End-to-End Grounded Conversation and Prospect Capture
 
-Goal: complete the assignment's core user journey.
+Goal: complete the assignment's core conversation loop.
 
-Scope:
+Implemented:
 
-- final system prompt
-- conversation state tuning
-- natural short responses
-- property clarification flow
-- prospect capture flow
-- manual call scenarios
-- persisted prospect verification
+- leasing-specific system prompt in `worker/prompts.py`
+- manual test scenarios in `docs/project/TEST_CONVERSATION_SCENARIOS.md`
+- property clarification flow through `search_properties` and `CallState`
+- exact unit fact flow through `get_unit_details`
+- FAQ/policy flow through `search_knowledge_base`
+- safe capture flow through `capture_prospect_interest`
+- read-only `/prospects` endpoint for verification
 
-Primary decision topics:
+Expected successful journey:
 
-- final prompt constraints
-- when to ask for name/email
-- whether to capture unit-level or property-level interest
-- whether transcript/call event persistence is necessary for the demo or should be deferred
+1. Caller identifies Aurora Heights, Pine Garden Flats, or a unit.
+2. Assistant resolves the target with a tool call.
+3. Caller asks exact fact questions; assistant answers from SQLite.
+4. Caller asks policy or FAQ questions; assistant answers from KB snippets.
+5. Caller asks to be contacted or says they are interested.
+6. Assistant asks for missing name or confirmation if needed.
+7. Capture tool writes the prospect and interest only after the safety gate passes.
+8. Reviewer verifies the row through `GET /prospects` or SQLite.
 
-Exit criteria:
+Remaining for submission evidence:
 
-- caller asks rent, bedrooms, view, parking, pet policy, and availability
-- agent answers from tools without inventing facts
-- agent handles unknowns gracefully
-- agent registers interest after confirmation
-- SQLite shows correct prospect and interest rows
-- transcript and tool-event persistence are deferred unless needed to debug the demo call
+- place and record a real call or video of a voice session
+- use the scenario document as the call script
+- verify the final database row after the recorded call
 
 ## Milestone 8: Evaluation, Documentation, and Demo Evidence
 
-Goal: make the repository reviewable and submission-ready.
+Goal: make the repository reviewable as a take-home submission.
 
-Scope:
+Implemented:
 
-- README completion
-- architecture documentation updates
-- evaluation documentation
-- manual test script
-- optional LLM-as-judge design
-- real call recording or video artifact
-- final cleanup
+- README run instructions
+- architecture documentation
+- LiveKit/Twilio runbook
+- manual conversation scenarios
+- readiness review document
+- automated unit tests for repositories, retrieval, tools, provider factory, API, and worker helpers
 
-Primary decision topics:
+Recommended final evaluation before submission:
 
-- evaluation approach
-- what call recording or video is used as demo evidence
-- what tradeoffs are documented
+- `uv run ruff format --check .`
+- `uv run ruff check .`
+- `uv run pytest`
+- one real or simulated voice call using Scenario 1 or Scenario 2
+- verify `/prospects` contains the expected prospect and target
 
-Exit criteria:
+Future evaluation plan:
 
-- clean checkout instructions work, including how a reviewer can place a call or talk to the assistant
-- required credentials are documented
-- test/lint commands pass
-- call recording or video is captured for submission
-- docs explain architecture, grounding, tools, safety, and future work
+- Convert `docs/project/TEST_CONVERSATION_SCENARIOS.md` into a regression dataset.
+- Add an LLM-as-judge rubric for factual grounding, correct tool use, unsupported-question handling, capture safety, and voice brevity.
+- Persist transcripts and tool events so recorded failures can become regression tests.
+- Track latency from final user transcript to first assistant audio for voice quality tuning.
 
-## Suggested ADR Order
+## Key Tradeoffs
 
-1. Project foundation and runtime shape.
-2. SQLite domain model and seed data.
-3. Provider adapter layer.
-4. Knowledge retrieval approach.
-5. Leasing tools and prospect capture safety gate.
-6. LiveKit SIP inbound call pipeline.
-7. End-to-end conversation policy.
-8. Evaluation and demo evidence.
+- **Local-first data over hosted infrastructure:** Faster reviewer setup and fewer credentials, at the cost of production-grade scaling.
+- **Lexical KB retrieval over vector search:** Deterministic and transparent for a tiny corpus, weaker for broad paraphrases.
+- **Code safety gate over prompt-only safety:** Slightly more implementation work, but it prevents premature or ambiguous database writes.
+- **LiveKit SIP over direct Twilio media streaming:** Less custom audio plumbing, at the cost of depending on LiveKit's worker and SIP model.
+- **Minimal API over CRM features:** Keeps scope aligned with the brief and avoids building unrelated admin workflows.
 
-The order intentionally establishes the project skeleton and data layer before realtime voice integration. This keeps the highest-risk voice work testable against stable local tools.
+## What I Would Do With More Time
+
+- Capture and include the final call recording or video.
+- Add transcript and tool-event persistence.
+- Add an LLM-as-judge regression harness around the manual scenarios.
+- Add a browser voice fallback for reviewers who cannot configure telephony.
+- Add schema migrations and explicit `source`/`status` fields on `prospect_interests`.
+- Move to Postgres and hybrid lexical/vector retrieval for a larger property portfolio.
+- Tune endpointing, interruption behavior, and response length from real call metrics.

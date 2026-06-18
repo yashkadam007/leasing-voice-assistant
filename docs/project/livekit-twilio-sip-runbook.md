@@ -67,8 +67,16 @@ worker starts a real call session.
 ## Manual Smoke Test
 
 1. Start the worker.
-2. Place a call to the Twilio number, or create an outbound SIP test call with
-   a generated room and participant identity:
+2. Place a call to the Twilio number, or create an outbound SIP test call from
+   your machine with the LiveKit `lk` CLI and a prepared `sip-participant.json`
+   payload:
+
+   ```sh
+   lk sip participant create sip-participant.json
+   ```
+
+   The repository helper also uses the LiveKit CLI, but first generates a
+   unique room and participant identity from `sip-participant.json`:
 
    ```sh
    uv run leasing-voice-test-call
