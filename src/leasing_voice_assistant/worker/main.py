@@ -28,11 +28,35 @@ class TurnDetectionConfig:
     allow_interruptions: bool = True
     min_endpointing_delay_seconds: float = 0.7
     max_endpointing_delay_seconds: float = 3.0
+    min_interruption_duration_seconds: float = 0.5
+    min_interruption_words: int = 0
 
 
 def build_turn_detection_config() -> TurnDetectionConfig:
     """Return centralized turn-taking defaults for the worker runtime."""
     return TurnDetectionConfig()
+
+
+def build_turn_handling_options(
+    agents: Any,
+    turn_config: TurnDetectionConfig | None = None,
+) -> Any:
+    """Return LiveKit turn handling options without deprecated session kwargs."""
+    config = turn_config or build_turn_detection_config()
+    return agents.TurnHandlingOptions(
+        turn_detection=agents.inference.TurnDetector(),
+        endpointing={
+            "mode": "fixed",
+            "min_delay": config.min_endpointing_delay_seconds,
+            "max_delay": config.max_endpointing_delay_seconds,
+        },
+        interruption={
+            "enabled": config.allow_interruptions,
+            "mode": "adaptive",
+            "min_duration": config.min_interruption_duration_seconds,
+            "min_words": config.min_interruption_words,
+        },
+    )
 
 
 def build_worker_config(settings: Settings | None = None) -> dict[str, str | None]:
@@ -145,9 +169,7 @@ async def _start_agent_session(
         stt=provider_clients.stt,
         llm=provider_clients.llm,
         tts=provider_clients.tts,
-        allow_interruptions=turn_config.allow_interruptions,
-        min_endpointing_delay=turn_config.min_endpointing_delay_seconds,
-        max_endpointing_delay=turn_config.max_endpointing_delay_seconds,
+        turn_handling=build_turn_handling_options(agents, turn_config),
     )
     agent = agent_class(instructions=initial_instructions(), tools=tools)
     await _maybe_await(session.start(room=ctx.room, agent=agent))

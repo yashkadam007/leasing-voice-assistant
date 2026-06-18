@@ -4,6 +4,8 @@ from leasing_voice_assistant.core.config import Settings
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.worker.main import (
     build_provider_factory,
+    build_turn_detection_config,
+    build_turn_handling_options,
     build_worker_config,
     create_worker_options,
     validate_livekit_settings,
@@ -46,6 +48,26 @@ def test_worker_provider_factory_builds_without_constructing_clients() -> None:
     factory = build_provider_factory(settings_for_test(app_env="test"))
 
     assert factory.settings.app_env == "test"
+
+
+def test_turn_handling_options_use_current_livekit_shape() -> None:
+    from livekit import agents
+
+    config = build_turn_detection_config()
+    options = build_turn_handling_options(agents, config)
+
+    assert options["endpointing"] == {
+        "mode": "fixed",
+        "min_delay": 0.7,
+        "max_delay": 3.0,
+    }
+    assert options["interruption"] == {
+        "enabled": True,
+        "mode": "adaptive",
+        "min_duration": 0.5,
+        "min_words": 0,
+    }
+    assert options["turn_detection"].model == "turn-detector-v1-mini"
 
 
 def test_worker_options_use_default_agent_dispatch_name() -> None:
