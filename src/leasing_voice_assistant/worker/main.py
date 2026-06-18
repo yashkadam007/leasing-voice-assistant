@@ -5,6 +5,7 @@ milestones. This module stays importable without provider credentials.
 """
 
 from leasing_voice_assistant.core.config import Settings, get_settings
+from leasing_voice_assistant.providers.factory import ProviderFactory
 
 
 def build_worker_config(settings: Settings | None = None) -> dict[str, str | None]:
@@ -17,6 +18,11 @@ def build_worker_config(settings: Settings | None = None) -> dict[str, str | Non
         "tts_provider": app_settings.tts_provider,
         "llm_provider": app_settings.llm_provider,
     }
+
+
+def build_provider_factory(settings: Settings | None = None) -> ProviderFactory:
+    """Return the worker provider factory without constructing runtime clients."""
+    return ProviderFactory(settings or get_settings())
 
 
 def main() -> None:
