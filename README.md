@@ -26,7 +26,7 @@ src/leasing_voice_assistant/
   knowledge/      Local markdown ingestion and lexical retrieval
   providers/      Deepgram/OpenRouter/OpenAI provider adapters
 data/knowledge/   Reviewer-readable FAQ and property knowledge source files
-docs/project/     Architecture, ADRs, runbook, scenarios, and readiness review
+docs/project/     Architecture, ADRs, runbook, status, and readiness review
 tests/            Unit tests for data, retrieval, tools, providers, API, and worker helpers
 ```
 
@@ -109,7 +109,7 @@ Seeded properties:
 - Aurora Heights in San Francisco
 - Pine Garden Flats in Oakland
 
-The expected facts and manual test conversations are documented in `docs/project/TEST_CONVERSATION_SCENARIOS.md`.
+The expected seeded facts are visible in `src/leasing_voice_assistant/db/seed.py` and `data/knowledge/`.
 
 ## Run the API
 
@@ -153,7 +153,11 @@ Primary path:
 
 Detailed setup is in `docs/project/livekit-twilio-sip-runbook.md`.
 
-For an outbound SIP test call initiated from your machine, install and authenticate the LiveKit `lk` CLI, then create a local `sip-participant.json` payload using your trunk/phone details.
+For an outbound SIP test call initiated from your machine, install and authenticate the LiveKit `lk` CLI, then copy the tracked example and fill in your trunk/phone details:
+
+```sh
+cp sip-participant.example.json sip-participant.json
+```
 
 To initiate the call directly with LiveKit CLI:
 
@@ -161,19 +165,19 @@ To initiate the call directly with LiveKit CLI:
 lk sip participant create sip-participant.json
 ```
 
-The repository also includes a helper that reads `sip-participant.json`, generates a unique room and participant identity, and then calls the same LiveKit CLI command:
+The repository also includes a helper that reads a SIP participant template, generates a unique room and participant identity, and then calls the same LiveKit CLI command:
 
 ```sh
-uv run leasing-voice-test-call
+uv run leasing-voice-test-call --template sip-participant.json
 ```
 
-To inspect the generated payload without calling LiveKit:
+To inspect the generated payload from a clean checkout without calling LiveKit:
 
 ```sh
 uv run leasing-voice-test-call --dry-run
 ```
 
-`sip-participant.json` is intentionally ignored because it may contain account-specific phone/trunk details.
+`sip-participant.json` is intentionally ignored because it may contain account-specific phone/trunk details. The tracked `sip-participant.example.json` uses placeholders only.
 
 ## Verify prospect capture
 
@@ -232,8 +236,8 @@ The safety gate rejects capture when phone number, name, target, confidence, amb
 
 The planning docs are part of the submission:
 
-- `docs/project/ARCHITECTURE.md`: approach, call/audio pipeline, tool/database flows, knowledge choice, property resolution, prospect capture, safety checks, tradeoffs, and future work
-- `docs/project/IMPLEMENTATION_PLAN.md`: milestone plan, what was implemented, remaining submission evidence, and evaluation plan
+- `docs/project/ARCHITECTURE.md`: approach, call/audio pipeline, tool/database flows, knowledge choice, property resolution, prospect capture, safety checks, evaluation thinking, tradeoffs, and future work
+- `docs/project/IMPLEMENTATION_PLAN.md`: milestone plan, what was implemented, submission email notes, and evaluation plan
 - `docs/project/STATUS.md`: current milestone status, decisions, known limitations, and next action
 - `docs/project/adr/`: detailed architecture decision records
 
@@ -259,14 +263,11 @@ uv run ruff format --check .
 - `docs/project/IMPLEMENTATION_PLAN.md`: planning approach, milestones, and future evaluation
 - `docs/project/STATUS.md`: current status, remaining submission tasks, and known limitations
 - `docs/project/livekit-twilio-sip-runbook.md`: LiveKit/Twilio setup and manual smoke test
-- `docs/project/TEST_CONVERSATION_SCENARIOS.md`: manual evaluation scenarios and expected answers
 - `docs/project/adr/`: architecture decision records
 - `docs/project/SUBMISSION_READINESS_REVIEW.md`: strict submission-readiness review and remaining gaps
 
 ## Known limitations and next steps
 
-- Capture and include the required short recording or video of a real call.
-- Add a tracked `sip-participant.example.json` or make the SIP helper require an explicit template path so the outbound test-call flow is cleaner from a fresh checkout.
 - Add transcript and tool-event persistence for review and regression analysis.
-- Add an automated evaluation harness, such as an LLM-as-judge rubric over the scenarios in `docs/project/TEST_CONVERSATION_SCENARIOS.md`.
-- Consider adding `source` and `status` fields to `prospect_interests` to mirror the brief's sample schema more closely.
+- Add Langfuse tracing for LLM calls, tool calls, retrieval results, capture rejections, and latency metrics.
+- Add an automated evaluation harness, such as an LLM-as-judge rubric over fixed call transcripts and expected tool/write outcomes.

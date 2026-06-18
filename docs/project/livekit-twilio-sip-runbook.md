@@ -68,18 +68,31 @@ worker starts a real call session.
 
 1. Start the worker.
 2. Place a call to the Twilio number, or create an outbound SIP test call from
-   your machine with the LiveKit `lk` CLI and a prepared `sip-participant.json`
-   payload:
+   your machine with the LiveKit `lk` CLI. For outbound testing, copy the
+   tracked placeholder payload and fill in your trunk/phone details:
+
+   ```sh
+   cp sip-participant.example.json sip-participant.json
+   ```
+
+   Then create the participant directly:
 
    ```sh
    lk sip participant create sip-participant.json
    ```
 
    The repository helper also uses the LiveKit CLI, but first generates a
-   unique room and participant identity from `sip-participant.json`:
+   unique room and participant identity from a template:
 
    ```sh
-   uv run leasing-voice-test-call
+   uv run leasing-voice-test-call --template sip-participant.json
+   ```
+
+   To inspect the generated payload from a clean checkout without calling
+   LiveKit:
+
+   ```sh
+   uv run leasing-voice-test-call --dry-run
    ```
 
 3. Confirm LiveKit creates or selects a room and assigns the worker job.

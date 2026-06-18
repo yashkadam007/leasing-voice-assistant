@@ -258,11 +258,27 @@ The assistant is expected to:
 - ask a clarification question when the property or unit is ambiguous
 - avoid prospect capture unless the safety gate allows it
 
+## Evaluation Thinking
+
+I would evaluate this assistant on the behaviors that matter for a leasing call, not only on whether the code paths execute:
+
+- **Voice experience:** measure time from the final user transcript to first assistant audio, review whether responses are concise enough for speech, and note interruption or endpointing problems from recorded calls.
+- **Factual grounding:** run fixed call scripts against known seeded facts and check that rent, availability, bedrooms, parking, pet policy, and lease answers match SQLite or the knowledge base.
+- **Unknown handling:** ask questions that are not in the data, such as school district, pool availability, current specials, or tour slots, and verify the assistant says the available data does not contain the answer instead of guessing.
+- **Tool use:** inspect logs to confirm exact unit facts come from database tools, policy/process answers come from knowledge retrieval, and prospect writes only happen through the capture tool.
+- **Property resolution:** test vague, partial, and ambiguous references, then verify the assistant asks for clarification rather than choosing the wrong community or unit.
+- **Capture safety:** attempt capture with missing phone metadata, missing name, low-confidence target, ambiguous target, and no explicit interest confirmation; each case should be rejected with the expected safety reason.
+- **Database result:** after capture-positive calls, verify one normalized prospect row and one idempotent property or unit interest row through `GET /prospects` or SQLite.
+
+For ongoing evaluation, I would turn the manual call scripts into a small regression dataset with expected facts, expected tool calls, and expected write/no-write outcomes. An LLM-as-judge could score transcripts for grounding, unsupported-question handling, concise voice style, and whether the assistant asked the right clarification or capture question. The deterministic safety outcomes should stay code-asserted rather than judge-only.
+
+The next useful measurement layer would persist transcripts, tool calls, capture rejections, and latency timestamps. That would let real demo failures become repeatable regression cases and would make voice quality tuning concrete instead of anecdotal.
+
 ## Key Decisions And Tradeoffs
 
 - **LiveKit SIP over direct Twilio media streaming:** LiveKit reduces custom audio transport and turn-taking code. Direct Twilio streaming would give lower-level control but would increase assignment risk.
 - **Separate worker and API:** The worker owns realtime calls; FastAPI stays easy to run and credential-free for `/health`.
-- **SQLite over hosted database:** SQLite keeps the project runnable from a clean checkout and is enough for seeded demo data. A production deployment would move to Postgres and migrations.
+- **SQLite over hosted database:** SQLite keeps the project runnable from a clean checkout and is enough for seeded demo data.
 - **Local markdown retrieval over vector search:** Deterministic local retrieval is transparent and credential-free. Vector retrieval is deferred until corpus size or paraphrase coverage requires it.
 - **Code-enforced safety over prompt-only safety:** The LLM can guide the conversation, but database writes must be rejected by deterministic code when required details are missing.
 - **Provider adapters over direct SDK coupling:** The worker can swap Deepgram/OpenRouter/OpenAI configuration without spreading SDK details through the codebase.
@@ -270,11 +286,9 @@ The assistant is expected to:
 
 ## What I Would Do With More Time
 
-- Capture and include a short real-call recording or video as final demo evidence.
-- Add an automated evaluation harness over `docs/project/TEST_CONVERSATION_SCENARIOS.md`, including an LLM-as-judge rubric for grounding, tool choice, safety, and voice concision.
+- Add the automated regression and LLM-as-judge evaluation harness described above.
+- Add Langfuse tracing for LLM calls, tool calls, retrieval results, capture rejections, and latency metrics.
 - Persist call transcripts and tool events for post-call review and regression analysis.
-- Add explicit `source` and `status` columns to `prospect_interests` to match the brief's sample schema more closely.
-- Add migrations, likely Alembic, if the schema starts evolving beyond the assignment.
 - Add a browser-based LiveKit voice fallback for reviewers without telephony credentials.
 - Move knowledge retrieval to embeddings or hybrid lexical/vector retrieval if the corpus grows.
 - Tune voice latency and barge-in settings from real call recordings rather than unit-test assumptions.

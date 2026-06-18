@@ -1,0 +1,8 @@
+{
+  "sip_trunk_id": "ST_your_outbound_trunk_id",
+  "sip_call_to": "+14155550100",
+  "room_name": "leasing-test-call",
+  "participant_identity": "test-caller",
+  "participant_name": "Test Caller",
+  "participant_metadata": "{\"sip.phoneNumber\":\"+14155551212\"}"
+}

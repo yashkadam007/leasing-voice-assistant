@@ -10,7 +10,7 @@ The project was built as a sequence of small milestones, each captured by an ADR
 4. Hide provider SDK details behind adapters.
 5. Implement the agent tools and safety gate outside LiveKit so they can be tested deterministically.
 6. Connect the tested tool layer to the LiveKit SIP voice worker.
-7. Document the end-to-end scenarios, verification path, tradeoffs, and remaining demo evidence.
+7. Document the end-to-end verification path, tradeoffs, and external demo evidence plan.
 
 This order keeps the voice agent central while avoiding a common failure mode: wiring telephony first and then discovering that grounding, state, and safe writes are hard to test.
 
@@ -24,8 +24,8 @@ This order keeps the voice agent central while avoiding a common failure mode: w
 | 4. Provider Adapter Layer | Complete | Deepgram STT/TTS adapters, OpenRouter/OpenAI LLM adapters, provider factory |
 | 5. Leasing Agent Tools and Safety Gate | Complete | `LeasingAgentTools`, `CallState`, `evaluate_capture_safety`, capture tests |
 | 6. LiveKit SIP Call Pipeline | Complete | LiveKit worker entrypoint, SIP metadata parsing, tool adapters, runbook |
-| 7. End-to-End Grounded Conversation and Prospect Capture | Implemented locally; real-call recording still needed | prompt, tool flow, manual scenarios, `/prospects` verification |
-| 8. Evaluation, Documentation, and Demo Evidence | Documentation updated; recording remains | architecture docs, README, scenario guide, readiness review |
+| 7. End-to-End Grounded Conversation and Prospect Capture | Implemented locally; real-call recording link will be sent in email | prompt, tool flow, `/prospects` verification |
+| 8. Evaluation, Documentation, and Demo Evidence | Documentation updated; demo link handled in submission email | architecture docs, README, readiness review |
 
 ## Milestone 1: Project Foundation and Runtime Shape
 
@@ -177,7 +177,6 @@ Goal: complete the assignment's core conversation loop.
 Implemented:
 
 - leasing-specific system prompt in `worker/prompts.py`
-- manual test scenarios in `docs/project/TEST_CONVERSATION_SCENARIOS.md`
 - property clarification flow through `search_properties` and `CallState`
 - exact unit fact flow through `get_unit_details`
 - FAQ/policy flow through `search_knowledge_base`
@@ -195,10 +194,10 @@ Expected successful journey:
 7. Capture tool writes the prospect and interest only after the safety gate passes.
 8. Reviewer verifies the row through `GET /prospects` or SQLite.
 
-Remaining for submission evidence:
+Remaining for submission email:
 
-- place and record a real call or video of a voice session
-- use the scenario document as the call script
+- add the demo call recording/video link
+- use a short call script that covers a structured fact, a policy answer, an unknown question, and safe capture
 - verify the final database row after the recorded call
 
 ## Milestone 8: Evaluation, Documentation, and Demo Evidence
@@ -210,7 +209,6 @@ Implemented:
 - README run instructions
 - architecture documentation
 - LiveKit/Twilio runbook
-- manual conversation scenarios
 - readiness review document
 - automated unit tests for repositories, retrieval, tools, provider factory, API, and worker helpers
 
@@ -219,12 +217,12 @@ Recommended final evaluation before submission:
 - `uv run ruff format --check .`
 - `uv run ruff check .`
 - `uv run pytest`
-- one real or simulated voice call using Scenario 1 or Scenario 2
+- one real or simulated voice call covering property resolution, grounded answers, unknown handling, and safe capture
 - verify `/prospects` contains the expected prospect and target
 
 Future evaluation plan:
 
-- Convert `docs/project/TEST_CONVERSATION_SCENARIOS.md` into a regression dataset.
+- Convert manual call scripts into a regression dataset.
 - Add an LLM-as-judge rubric for factual grounding, correct tool use, unsupported-question handling, capture safety, and voice brevity.
 - Persist transcripts and tool events so recorded failures can become regression tests.
 - Track latency from final user transcript to first assistant audio for voice quality tuning.
@@ -239,10 +237,9 @@ Future evaluation plan:
 
 ## What I Would Do With More Time
 
-- Capture and include the final call recording or video.
 - Add transcript and tool-event persistence.
-- Add an LLM-as-judge regression harness around the manual scenarios.
+- Add Langfuse tracing for LLM calls, tool calls, retrieval results, capture rejections, and latency metrics.
+- Add an LLM-as-judge regression harness around fixed call transcripts.
 - Add a browser voice fallback for reviewers who cannot configure telephony.
-- Add schema migrations and explicit `source`/`status` fields on `prospect_interests`.
 - Move to Postgres and hybrid lexical/vector retrieval for a larger property portfolio.
 - Tune endpointing, interruption behavior, and response length from real call metrics.
