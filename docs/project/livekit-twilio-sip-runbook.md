@@ -15,8 +15,10 @@ DEEPGRAM_API_KEY=...
 OPENROUTER_API_KEY=...
 # Required only when LLM_PROVIDER=openai:
 OPENAI_API_KEY=...
-DATABASE_URL=sqlite:///leasing_voice_assistant.db
 ```
+
+`DATABASE_URL` is optional. If it is not set, the worker uses
+`sqlite:///leasing_voice_assistant.db`.
 
 Provider defaults:
 
@@ -55,7 +57,7 @@ rejected by the safety gate with `missing_phone`.
 ## Start The Worker
 
 ```sh
-UV_CACHE_DIR=.uv-cache uv run leasing-voice-worker
+uv run leasing-voice-worker
 ```
 
 The worker should connect to LiveKit and wait for room jobs. Missing LiveKit
@@ -69,7 +71,7 @@ worker starts a real call session.
    a generated room and participant identity:
 
    ```sh
-   UV_CACHE_DIR=.uv-cache uv run leasing-voice-test-call
+   uv run leasing-voice-test-call
    ```
 
 3. Confirm LiveKit creates or selects a room and assigns the worker job.
