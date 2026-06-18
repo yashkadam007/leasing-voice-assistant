@@ -58,7 +58,13 @@ worker starts a real call session.
 ## Manual Smoke Test
 
 1. Start the worker.
-2. Place a call to the Twilio number.
+2. Place a call to the Twilio number, or create an outbound SIP test call with
+   a generated room and participant identity:
+
+   ```sh
+   UV_CACHE_DIR=.uv-cache uv run leasing-voice-test-call
+   ```
+
 3. Confirm LiveKit creates or selects a room and assigns the worker job.
 4. Ask about an exact property, such as "Aurora Heights".
 5. Ask a policy question, such as "What is the application fee?"

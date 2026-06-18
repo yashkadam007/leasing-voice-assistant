@@ -1,6 +1,7 @@
 # Local environment
 .env
 .venv/
+sip-participant.json
 
 # uv local cache
 .uv-cache/
