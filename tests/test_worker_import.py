@@ -58,8 +58,8 @@ def test_turn_handling_options_use_current_livekit_shape() -> None:
 
     assert options["endpointing"] == {
         "mode": "fixed",
-        "min_delay": 0.8,
-        "max_delay": 1.5,
+        "min_delay": 0.5,
+        "max_delay": 1.0,
     }
     assert options["interruption"] == {
         "enabled": True,

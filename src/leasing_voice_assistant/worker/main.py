@@ -35,8 +35,8 @@ class TurnDetectionConfig:
     """Low-latency defaults for leasing phone conversations."""
 
     allow_interruptions: bool = True
-    min_endpointing_delay_seconds: float = 0.8
-    max_endpointing_delay_seconds: float = 1.5
+    min_endpointing_delay_seconds: float = 0.5
+    max_endpointing_delay_seconds: float = 1.0
     min_interruption_duration_seconds: float = 0.5
     min_interruption_words: int = 0
 
