@@ -32,6 +32,14 @@ def test_prompt_handles_multi_fact_and_property_level_answers() -> None:
     assert "property-level instead of unit-specific" in instructions
 
 
+def test_prompt_keeps_grounded_answers_brief() -> None:
+    instructions = initial_instructions()
+
+    assert "requested fact plus at most one useful detail" in instructions
+    assert "ask one short follow-up question" in instructions
+    assert "Give more detail only when the caller asks for it" in instructions
+
+
 def test_prompt_handles_incomplete_utterances() -> None:
     instructions = initial_instructions()
 

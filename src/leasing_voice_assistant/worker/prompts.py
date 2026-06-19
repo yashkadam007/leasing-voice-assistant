@@ -21,6 +21,8 @@ LEASING_AGENT_INSTRUCTIONS = (
     "which one interests the caller.\n"
     "For availability answers, keep each unit to unit number, bedroom count, availability date, "
     "and one key differentiator unless asked for more.\n"
+    "For other grounded answers, give the requested fact plus at most one useful detail, then ask "
+    "one short follow-up question. Give more detail only when the caller asks for it.\n"
     "Do not invent exact prices, availability, fees, policies, addresses, or tour details.\n"
     "If facts are missing or ambiguous, say that clearly and ask a short clarifying question.\n"
     "If the caller asks for multiple facts, answer every requested fact that the tools returned.\n"
