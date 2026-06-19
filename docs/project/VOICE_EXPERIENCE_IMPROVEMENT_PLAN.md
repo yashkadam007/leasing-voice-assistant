@@ -204,8 +204,7 @@ the same tool call twice, so duplicate retrieval is one concrete target for inve
 
 ## Implemented Latency Improvements
 
-The first three issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were implemented on
-2026-06-19:
+The first four issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were implemented:
 
 1. **Tool orchestration latency:** read-only property and knowledge requests now use bounded
    pre-LLM grounding. Hybrid mode exposes only the guarded `capture_prospect_interest` tool, which
@@ -215,6 +214,9 @@ The first three issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were imp
    maximum to a 0.5-second minimum and 1.0-second maximum.
 3. **Long tool responses:** the prompt now asks for the requested fact, one useful detail, and a
    short follow-up question instead of a longer property or policy summary.
+4. **LLM latency:** on 2026-06-20, the direct OpenAI deployment setting changed from
+   `gpt-4o-mini` to `gpt-4.1-mini`. This is an implementation status only; no latency or naturalness
+   improvement is claimed until a matched post-change call batch is measured.
 
 False-interruption tuning and metrics record classification remain separate pending changes and
 are not included in the improvement claims below.
@@ -260,9 +262,15 @@ steps are:
    barge-ins, and interruption stop latency against the baseline.
 4. Separate greeting records, user-response turns, and assistant continuations in the local
    summary.
-5. Compare model, provider, region, prompt size, and TTS options only after the matched batch
-   confirms the higher-priority changes.
+5. Measure the `gpt-4.1-mini` direct OpenAI model over a matched call batch and compare LLM TTFT,
+   end-to-end latency, grounded-answer accuracy, capture behavior, and naturalness with the
+   `gpt-4o-mini` baseline.
 
 Do not prioritize local tool execution or normal playback latency: both are already small. Defer
-model-provider comparisons until the grounding, endpointing, and response-length improvements are
-confirmed in a matched call batch.
+additional model-provider comparisons until the implemented `gpt-4.1-mini` change and the
+grounding, endpointing, and response-length improvements are confirmed in a matched call batch.
+
+### Future TTS Regional Deployment
+
+Deepgram's hosted API does not provide an India-region selector. If regional TTS latency becomes a
+priority, evaluate self-hosting Deepgram in India or switching to a provider with an India endpoint.
