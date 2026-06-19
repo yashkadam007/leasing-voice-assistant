@@ -22,10 +22,12 @@ class WorkerToolSet:
         state: CallState,
         *,
         record_tool: Callable[..., None] | None = None,
+        on_tool_started: Callable[[str], None] | None = None,
     ) -> None:
         self.session = session
         self.domain_tools = LeasingAgentTools(session, state)
         self.record_tool = record_tool
+        self.on_tool_started = on_tool_started
 
     def search_properties(self, query: str, limit: int = 5) -> dict:
         """Search property and unit records from caller wording."""
@@ -91,7 +93,11 @@ class WorkerToolSet:
 
     def capture_as_livekit_tool(self) -> Callable[..., Awaitable[dict]]:
         """Return only the guarded write tool for hybrid grounding mode."""
-        tool = _async_tool(self.capture_prospect_interest, record_tool=self.record_tool)
+        tool = _async_tool(
+            self.capture_prospect_interest,
+            record_tool=self.record_tool,
+            on_tool_started=self.on_tool_started,
+        )
         decorator = _livekit_tool_decorator()
         return decorator(tool) if decorator is not None else tool
 
@@ -118,11 +124,14 @@ def _async_tool(
     tool: Callable[..., dict],
     *,
     record_tool: Callable[..., None] | None = None,
+    on_tool_started: Callable[[str], None] | None = None,
 ) -> Callable[..., Awaitable[dict]]:
     """Adapt sync domain tools for LiveKit SDKs that await function tools."""
 
     @wraps(tool)
     async def wrapper(*args: Any, **kwargs: Any) -> dict:
+        if on_tool_started is not None:
+            on_tool_started(tool.__name__)
         started_at = time.monotonic()
         is_error = False
         try:
@@ -146,6 +155,12 @@ def build_worker_tools(
     state: CallState,
     *,
     record_tool: Callable[..., None] | None = None,
+    on_tool_started: Callable[[str], None] | None = None,
 ) -> WorkerToolSet:
     """Build the call-scoped worker tool adapter."""
-    return WorkerToolSet(session, state, record_tool=record_tool)
+    return WorkerToolSet(
+        session,
+        state,
+        record_tool=record_tool,
+        on_tool_started=on_tool_started,
+    )

@@ -23,8 +23,28 @@ TURN_LATENCY_FIELDS = (
     "playback_ms",
     "e2e_ms",
     "assistant_duration_ms",
+    "acknowledgment_start_ms",
+    "acknowledgment_duration_ms",
+    "substantive_audio_ready_ms",
+    "substantive_audio_start_ms",
+    "acknowledgment_to_substantive_gap_ms",
+    "perceived_response_ms",
 )
 SUMMARY_LATENCY_FIELDS = ("connected_to_greeting_ms", "call_duration_ms")
+ACKNOWLEDGMENT_DEFAULTS = {
+    "acknowledgment_eligible": False,
+    "acknowledgment_class": None,
+    "acknowledgment_scheduled": False,
+    "acknowledgment_started": False,
+    "acknowledgment_outcome": "suppressed",
+    "acknowledgment_start_ms": None,
+    "acknowledgment_duration_ms": None,
+    "substantive_audio_ready_ms": None,
+    "substantive_audio_start_ms": None,
+    "acknowledgment_to_substantive_gap_ms": None,
+    "acknowledgment_phrase_id": None,
+    "perceived_response_ms": None,
+}
 
 
 def utc_timestamp() -> str:
@@ -64,6 +84,7 @@ class CallMetricsRecorder:
         self._pending_user_metrics: dict[str, Any] = {}
         self._pending_tools: list[dict[str, Any]] = []
         self._pending_grounding: dict[str, Any] = {}
+        self._pending_acknowledgment: dict[str, Any] = {}
         self._pending_llm_requests: list[dict[str, Any]] = []
         self._turn_id = 0
         self._connected_to_greeting_ms: int | None = None
@@ -122,6 +143,13 @@ class CallMetricsRecorder:
             }
         )
 
+    def record_acknowledgment(self, turn_epoch: int, **values: Any) -> None:
+        """Queue content-free acknowledgment lifecycle fields for a turn."""
+        if self._pending_acknowledgment.get("_turn_epoch") not in (None, turn_epoch):
+            self._pending_acknowledgment = {}
+        self._pending_acknowledgment["_turn_epoch"] = turn_epoch
+        self._pending_acknowledgment.update(values)
+
     def record_assistant_message(self, metrics: Any, *, interrupted: bool) -> None:
         """Write a completed assistant turn using its paired user and tool metrics."""
         assistant_metrics = _metrics_mapping(metrics)
@@ -154,11 +182,18 @@ class CallMetricsRecorder:
             "llm_request_count": len(self._pending_llm_requests) or None,
             "llm_requests": list(self._pending_llm_requests),
             **self._pending_grounding,
+            **ACKNOWLEDGMENT_DEFAULTS,
+            **{
+                key: value
+                for key, value in self._pending_acknowledgment.items()
+                if not key.startswith("_")
+            },
         }
         self.writer.write(record)
         self._pending_user_metrics = {}
         self._pending_tools = []
         self._pending_grounding = {}
+        self._pending_acknowledgment = {}
         self._pending_llm_requests = []
 
     def record_agent_state(self, new_state: Any) -> None:

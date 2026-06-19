@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from livekit.agents import Agent, StopResponse
@@ -16,6 +17,7 @@ from leasing_voice_assistant.agent.grounding import (
     GroundingOutcome,
 )
 from leasing_voice_assistant.agent.state import CallState
+from leasing_voice_assistant.worker.acknowledgments import AcknowledgmentCoordinator
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ class GroundingCoordinator:
         self._activity_confirmed = False
         self._timer: asyncio.TimerHandle | None = None
         self._interruption_duration_seconds = interruption_duration_seconds
+        self._invalidation_callbacks: list[Callable[[], None]] = []
 
     def bind(self, session: Any) -> None:
         """Observe only the events needed for cooperative cancellation."""
@@ -55,6 +58,12 @@ class GroundingCoordinator:
         if self._caller_speaking and not self._activity_confirmed:
             self._activity_confirmed = True
             self.epoch += 1
+            for callback in self._invalidation_callbacks:
+                callback()
+
+    def add_invalidation_callback(self, callback: Any) -> None:
+        """Run a callback when confirmed caller activity advances the epoch."""
+        self._invalidation_callbacks.append(callback)
 
     def _begin_activity(self) -> None:
         self._caller_speaking = True
@@ -86,12 +95,14 @@ class LeasingVoiceAgent(Agent):
         state: CallState,
         coordinator: GroundingCoordinator,
         metrics: CallMetricsRecorder | None = None,
+        acknowledgments: AcknowledgmentCoordinator | None = None,
     ) -> None:
         super().__init__(instructions=instructions, tools=tools)
         self._builder = builder
         self._state = state
         self._coordinator = coordinator
         self._metrics = metrics
+        self._acknowledgments = acknowledgments
         self._cache: dict[str, GroundingOutcome] = {}
         self._applied_transitions: set[str] = set()
 
@@ -101,6 +112,8 @@ class LeasingVoiceAgent(Agent):
         if cached is not None:
             self._inject(turn_ctx, cached)
             return
+
+        ack_epoch = self._acknowledgments.begin_turn() if self._acknowledgments else None
 
         text = _message_text(new_message)
         _epoch, is_cancelled = self._coordinator.token()
@@ -120,6 +133,8 @@ class LeasingVoiceAgent(Agent):
             if is_cancelled():
                 raise GroundingCancelled
             self._cache[message_id] = outcome
+            if self._acknowledgments is not None and ack_epoch is not None:
+                self._acknowledgments.set_grounding(ack_epoch, outcome)
             self._inject(turn_ctx, outcome)
         except GroundingCancelled as exc:
             cancelled = True
@@ -128,6 +143,8 @@ class LeasingVoiceAgent(Agent):
             logger.exception("voice_session.grounding_failed")
             outcome = self._builder.unavailable()
             self._cache[message_id] = outcome
+            if self._acknowledgments is not None and ack_epoch is not None:
+                self._acknowledgments.set_grounding(ack_epoch, outcome)
             self._inject(turn_ctx, outcome)
         finally:
             if self._metrics is not None:
@@ -137,6 +154,13 @@ class LeasingVoiceAgent(Agent):
                     duration_ms=duration_ms,
                     cancelled=cancelled,
                 )
+
+    def tts_node(self, text: Any, model_settings: Any) -> Any:
+        """Route substantive TTS through the optional acknowledgment race."""
+        substantive = super().tts_node(text, model_settings)
+        if self._acknowledgments is None:
+            return substantive
+        return self._acknowledgments.wrap_substantive(substantive)
 
     @staticmethod
     def _inject(turn_ctx: Any, outcome: GroundingOutcome) -> None:

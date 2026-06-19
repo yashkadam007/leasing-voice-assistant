@@ -21,6 +21,10 @@ from leasing_voice_assistant.db.session import (
 )
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.providers.factory import ProviderFactory
+from leasing_voice_assistant.worker.acknowledgments import (
+    AcknowledgmentCoordinator,
+    deepgram_synthesizer,
+)
 from leasing_voice_assistant.worker.agent import GroundingCoordinator, LeasingVoiceAgent
 from leasing_voice_assistant.worker.call_context import build_call_context
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder, JsonlMetricsWriter
@@ -154,11 +158,9 @@ async def job_entrypoint(ctx: Any) -> None:
 
     with session_scope(session_factory) as db_session:
         state = context.to_call_state()
-        tools = build_worker_tools(db_session, state, record_tool=call_metrics.record_tool)
         await _start_agent_session(
             ctx=ctx,
             provider_clients=provider_clients,
-            worker_tools=tools,
             state=state,
             db_session=db_session,
             settings=settings,
@@ -177,7 +179,6 @@ async def _start_agent_session(
     *,
     ctx: Any,
     provider_clients: Any,
-    worker_tools: Any,
     state: Any,
     db_session: Any,
     settings: Settings,
@@ -199,6 +200,28 @@ async def _start_agent_session(
             interruption_duration_seconds=turn_config.min_interruption_duration_seconds
         )
         coordinator.bind(session)
+        acknowledgments = None
+        if settings.acknowledgment_mode == "enabled":
+            acknowledgments = AcknowledgmentCoordinator(
+                synthesize=deepgram_synthesizer(provider_clients.tts),
+                metrics=call_metrics,
+                delay_seconds=settings.acknowledgment_delay_ms / 1000,
+                call_limit=settings.acknowledgment_call_limit,
+            )
+            acknowledgments.bind(session)
+            coordinator.add_invalidation_callback(acknowledgments.invalidate_current)
+        worker_tools = build_worker_tools(
+            db_session,
+            state,
+            record_tool=call_metrics.record_tool,
+            on_tool_started=(
+                lambda name: (
+                    acknowledgments.set_capture_intent()
+                    if acknowledgments is not None and name == "capture_prospect_interest"
+                    else None
+                )
+            ),
+        )
         agent = LeasingVoiceAgent(
             instructions=initial_instructions(),
             tools=[worker_tools.capture_as_livekit_tool()],
@@ -209,8 +232,14 @@ async def _start_agent_session(
             state=state,
             coordinator=coordinator,
             metrics=call_metrics,
+            acknowledgments=acknowledgments,
         )
     else:
+        worker_tools = build_worker_tools(
+            db_session,
+            state,
+            record_tool=call_metrics.record_tool,
+        )
         agent = agents.Agent(
             instructions=initial_instructions(),
             tools=worker_tools.as_livekit_tools(),

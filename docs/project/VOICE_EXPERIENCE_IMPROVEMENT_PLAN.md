@@ -204,7 +204,8 @@ the same tool call twice, so duplicate retrieval is one concrete target for inve
 
 ## Implemented Latency Improvements
 
-The first four issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were implemented:
+The first four issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were implemented, followed
+by ADR 0008's perceived-latency mitigation:
 
 1. **Tool orchestration latency:** read-only property and knowledge requests now use bounded
    pre-LLM grounding. Hybrid mode exposes only the guarded `capture_prospect_interest` tool, which
@@ -217,6 +218,13 @@ The first four issues in `VOICE_LATENCY_TUNING_IMPLEMENTATION_PLAN.md` were impl
 4. **LLM latency:** on 2026-06-20, the direct OpenAI deployment setting changed from
    `gpt-4o-mini` to `gpt-4.1-mini`. This is an implementation status only; no latency or naturalness
    improvement is claimed until a matched post-change call batch is measured.
+5. **Perceived post-commit latency:** ADR 0008's call-scoped acknowledgment coordinator is now
+   implemented behind the disabled-by-default `ACKNOWLEDGMENT_MODE` setting. On eligible slow
+   property, policy, comparison, or guarded capture turns, it can play a short contextual phrase
+   after a 750 ms delay. It cancels the phrase when substantive audio becomes ready first, prevents
+   acknowledgment and answer audio from overlapping, limits repetition to two non-consecutive
+   acknowledgments per call, and preserves normal interruption behavior. Acknowledgment timing is
+   recorded separately and does not count as a reduction in actual end-to-end response latency.
 
 False-interruption tuning and metrics record classification remain separate pending changes and
 are not included in the improvement claims below.
@@ -229,7 +237,7 @@ one guarded prospect-capture turn. All eight read turns completed with one LLM r
 tool call. Grounding took 16 ms p50 and 20 ms p90, with no grounding deadline or cancellation
 events.
 
-| Metric | Twenty-call baseline | Latest call | Change |
+| Metric | Twenty-call baseline | First post-change call | Change |
 | --- | ---: | ---: | ---: |
 | End-to-end response p50 | 3,410 ms | 3,304 ms | -106 ms (-3%) |
 | End-to-end response p90 | 5,916 ms | 4,061 ms | -1,855 ms (-31%) |
@@ -249,6 +257,43 @@ from only eight measured response turns in one call, and the grounded read turns
 the broader legacy tool cohort rather than identical scripted turns. Repeat the baseline scenarios
 over a matched call batch before treating these percentages as stable.
 
+### Latest Post-Change Call
+
+The latest completed measurement was call `SCL_kfNaLeeUzKB9`. It contained 13 assistant records,
+11 turns with end-to-end measurements, and no interruptions or errors. Ten measured turns were
+grounded reads without a tool call; one was a guarded prospect-capture turn. Acknowledgments were
+disabled, so all acknowledgment records were suppressed and no perceived-response metric was
+available.
+
+| Metric | Twenty-call baseline | Latest call | Change |
+| --- | ---: | ---: | ---: |
+| End-to-end response p50 | 3,410 ms | 4,303 ms | +893 ms (+26%) |
+| End-to-end response p90 | 5,916 ms | 5,000 ms | -916 ms (-15%) |
+| End-of-turn detection p50 | 1,887 ms | 2,064 ms | +177 ms (+9%) |
+| End-of-turn detection p90 | 3,209 ms | 3,234 ms | +25 ms (+1%) |
+| LLM time to first token p50 | 884 ms | 862 ms | -22 ms (-2%) |
+| LLM time to first token p90 | 1,279 ms | 1,545 ms | +266 ms (+21%) |
+| Assistant response duration p50 | 6,929 ms | 7,822 ms | +893 ms (+13%) |
+| Assistant response duration p90 | 15,305 ms | 12,690 ms | -2,615 ms (-17%) |
+
+The comparable grounded-read subset retained a meaningful improvement over legacy tool turns:
+
+| Metric | Legacy tool turns | Latest grounded reads | Change |
+| --- | ---: | ---: | ---: |
+| End-to-end response p50 | 5,251 ms | 4,219 ms | -1,032 ms (-20%) |
+| End-to-end response p90 | 6,638 ms | 5,076 ms | -1,562 ms (-24%) |
+| Assistant response duration p50 | 13,110 ms | 7,983 ms | -5,127 ms (-39%) |
+
+Grounding remained inexpensive at 16 ms p50 and 25 ms p90. The prospect-capture turn completed in
+4,303 ms compared with the legacy capture median of 5,452 ms, but one new sample is not enough to
+claim a stable capture improvement.
+
+**Verdict:** the changes reduced legacy read-tool orchestration latency and the long-response tail,
+but they have not yet demonstrated an overall median-latency improvement. Compared with the first
+post-change call, end-to-end p50 regressed from 3,304 ms to 4,303 ms and p90 regressed from 4,061 ms
+to 5,000 ms. End-of-turn and LLM tail variability remain material. This result is still directional
+because it comes from one latest call with 11 measured turns rather than a matched multi-call batch.
+
 ## Prioritized Experiments
 
 Continue to change one variable per matched call batch and compare against the twenty-call
@@ -265,6 +310,10 @@ steps are:
 5. Measure the `gpt-4.1-mini` direct OpenAI model over a matched call batch and compare LLM TTFT,
    end-to-end latency, grounded-answer accuracy, capture behavior, and naturalness with the
    `gpt-4o-mini` baseline.
+6. Verify Deepgram acknowledgment and substantive synthesis concurrency with credentials, then run
+   a matched acknowledgment-enabled call batch measuring perceived response time, actual
+   substantive latency, repetition, false interruptions, and successful barge-ins before enabling
+   `ACKNOWLEDGMENT_MODE` by default.
 
 Do not prioritize local tool execution or normal playback latency: both are already small. Defer
 additional model-provider comparisons until the implemented `gpt-4.1-mini` change and the

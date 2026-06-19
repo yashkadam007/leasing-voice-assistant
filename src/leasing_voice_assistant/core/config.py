@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     voice_metrics_path: str = "metrics/voice_metrics.jsonl"
     grounding_mode: Literal["hybrid", "legacy_tools"] = "hybrid"
     grounding_deadline_ms: int = Field(default=75, ge=1, le=1000)
+    acknowledgment_mode: Literal["disabled", "enabled"] = "disabled"
+    acknowledgment_delay_ms: int = Field(default=750, ge=100, le=5000)
+    acknowledgment_call_limit: int = Field(default=2, ge=0, le=10)
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"

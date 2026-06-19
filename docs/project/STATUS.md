@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Milestones 1 through 6 are complete. ADR 0007's hybrid pre-LLM read-grounding path is implemented behind a typed rollout setting and awaits matched-call acceptance validation. The demo call recording/video link is expected to be supplied in the submission email after the final smoke test against the configured telephony/provider accounts.
+Milestones 1 through 6 are complete. ADR 0007's hybrid pre-LLM read-grounding path is implemented behind a typed rollout setting and awaits matched-call acceptance validation. ADR 0008's contextual, latency-gated acknowledgment coordinator is implemented behind a disabled-by-default rollout setting; credentialed Deepgram concurrency and matched-call acceptance validation remain. The demo call recording/video link is expected to be supplied in the submission email after the final smoke test against the configured telephony/provider accounts.
 
 ## Milestone Status
 
@@ -17,6 +17,7 @@ Milestones 1 through 6 are complete. ADR 0007's hybrid pre-LLM read-grounding pa
 | 7. End-to-End Grounded Conversation and Prospect Capture | Mostly complete | Covered by previous ADRs and architecture docs | Implemented locally; demo proof link will be sent in email | Expected grounded answers, clarification behavior, safe capture, and verification are documented through the README and architecture docs. |
 | 8. Evaluation, Documentation, and Demo Evidence | In progress | Not planned as a separate ADR | Metrics capture implemented; baseline calls and demo link pending | Local JSONL turn/call measurement and summary reporting are implemented alongside the evaluation documentation. |
 | 9. Pre-LLM Read Grounding | Implemented; validation pending | Accepted in `docs/project/adr/0007-pre-llm-grounding-for-low-latency-read-turns.md` | Implemented behind `GROUNDING_MODE` | Deterministic bounded reads, cancellation, context injection, and grounding metrics are in place; matched-call acceptance remains. |
+| 10. Contextual Latency-Gated Acknowledgments | Implemented; validation pending | Accepted in `docs/project/adr/0008-contextual-latency-gated-acknowledgments.md` | Implemented behind `ACKNOWLEDGMENT_MODE` | Curated intent-specific acknowledgments are delayed, cancellable, interruptible, call-scoped, and measured separately from substantive latency; provider-backed contention and matched-call validation remain. |
 
 ## Implemented Assignment Requirements
 
@@ -59,6 +60,7 @@ uv run pytest
 | Use OpenRouter for LLM by default, with OpenAI as an option | Decided | OpenAI-compatible integration keeps model experiments easy. |
 | Enforce prospect capture safety inside the tool layer | Decided | Prompt instructions are not trusted as the only write guard. |
 | Use phone number as prospect identity key | Decided | Matches the brief and keeps duplicate handling simple. |
+| Use contextual, latency-gated acknowledgments on selected slow turns | Decided | Implemented disabled by default; provider-backed and matched-call validation remain. |
 
 ## Known Limitations
 
@@ -67,6 +69,8 @@ uv run pytest
 - The knowledge layer is lexical, so broad paraphrase coverage is weaker than a vector or hybrid search approach.
 - Call transcripts and tool events are logged but not persisted as first-class database records.
 - There is no browser-based voice fallback for reviewers without telephony credentials.
+- Deepgram acknowledgment/substantive concurrency and first-audio contention still require a
+  credentialed call batch; local fakes verify lifecycle ordering without provider credentials.
 
 ## Open Questions
 
@@ -74,5 +78,5 @@ uv run pytest
 
 ## Next Action
 
-Capture at least 20 representative calls with the local metrics recorder, then run
-`uv run leasing-voice-metrics` before starting the first latency improvement.
+Run credentialed Deepgram concurrency measurements, then evaluate ADR 0008 in a matched call batch
+as a separate voice-experience variable before enabling it by default.

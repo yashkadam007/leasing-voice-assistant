@@ -74,6 +74,18 @@ DEEPGRAM_TTS_MODEL=aura-2-thalia-en
 OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
 
+Contextual latency acknowledgments are implemented as a disabled-by-default experiment. Enable
+them only for a measured call batch:
+
+```sh
+ACKNOWLEDGMENT_MODE=enabled
+ACKNOWLEDGMENT_DELAY_MS=750
+ACKNOWLEDGMENT_CALL_LIMIT=2
+```
+
+The acknowledgment timer starts after caller-turn commitment. Acknowledgment metrics remain
+separate from substantive end-to-end response latency.
+
 To use OpenAI directly instead of OpenRouter:
 
 ```sh
