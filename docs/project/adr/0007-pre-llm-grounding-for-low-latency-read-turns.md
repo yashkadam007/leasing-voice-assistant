@@ -263,7 +263,11 @@ The implementation should remain milestone-scoped:
 ```text
 src/leasing_voice_assistant/
   agent/
-    grounding.py          # query parsing, pure result assembly, and state transitions
+    grounding/
+      __init__.py         # stable public grounding imports
+      models.py           # transport-neutral query, outcome, and state snapshot types
+      parser.py           # deterministic query patterns and parsing
+      builder.py          # bounded retrieval, result assembly, and state transitions
     prompts.py            # identity and rules for consuming the grounding block
     voice.py              # LeasingVoiceAgent and context injection
   worker/
@@ -279,6 +283,10 @@ tests/
   test_worker_turn_coordination.py
   test_worker_tools.py
 ```
+
+This package split clarifies ownership among independently changing grounding concepts. It does
+not change the grounding behavior, cancellation and deadline policy, payload contract, state
+transition rules, or the worker runtime boundary established by this decision.
 
 This ownership clarification does not change the runtime boundary: LiveKit session and call
 lifecycle orchestration remain in `worker/`. Acknowledgment coordination and metrics likewise

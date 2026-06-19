@@ -2,12 +2,9 @@ import asyncio
 
 import pytest
 
-from leasing_voice_assistant.agent.grounding import (
-    CallStateSnapshot,
-    GroundedTurnContextBuilder,
-    GroundingCancelled,
-    GroundingQueryParser,
-)
+from leasing_voice_assistant.agent.grounding.builder import GroundedTurnContextBuilder
+from leasing_voice_assistant.agent.grounding.models import CallStateSnapshot, GroundingCancelled
+from leasing_voice_assistant.agent.grounding.parser import GroundingQueryParser
 from leasing_voice_assistant.agent.state import CallState, ResolvedTarget
 from leasing_voice_assistant.db.seed import seed_database
 from leasing_voice_assistant.db.session import (
