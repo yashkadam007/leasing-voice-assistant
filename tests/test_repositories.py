@@ -8,7 +8,10 @@ from leasing_voice_assistant.db.session import (
     create_sqlite_engine,
     initialize_database,
 )
-from leasing_voice_assistant.repositories.properties import PropertiesRepository
+from leasing_voice_assistant.repositories.properties import (
+    PropertiesRepository,
+    normalize_unit_number,
+)
 from leasing_voice_assistant.repositories.prospects import (
     ProspectsRepository,
     normalize_phone_number,
@@ -50,6 +53,10 @@ def test_property_search_matches_unit_caller_text(session) -> None:
 
     assert [result.property.name for result in results] == ["Aurora Heights"]
     assert [unit.unit_number for unit in results[0].matched_units] == ["8A"]
+
+
+def test_unit_number_normalization_handles_compound_spoken_number() -> None:
+    assert normalize_unit_number("unit twenty four") == "24"
 
 
 def test_prospect_upsert_dedupes_by_normalized_phone(session) -> None:

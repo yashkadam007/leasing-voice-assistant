@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     livekit_api_secret: str | None = None
     livekit_agent_name: str = ""
     voice_metrics_path: str = "metrics/voice_metrics.jsonl"
+    grounding_mode: Literal["hybrid", "legacy_tools"] = "hybrid"
+    grounding_deadline_ms: int = Field(default=75, ge=1, le=1000)
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"

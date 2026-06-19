@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from leasing_voice_assistant.db.models import Property, Unit
@@ -91,6 +91,96 @@ class PropertiesRepository:
         )
         return self.session.scalar(statement)
 
+    def get_unit(self, unit_id: int) -> Unit | None:
+        """Return an authoritative unit and its property by database id."""
+        return self.session.scalar(
+            select(Unit).options(selectinload(Unit.property)).where(Unit.id == unit_id)
+        )
+
+    def list_property_identifiers(self) -> list[tuple[int, str, str, str]]:
+        """Return stable property names and locations for deterministic parsing."""
+        return list(
+            self.session.execute(
+                select(Property.id, Property.name, Property.city, Property.state).order_by(
+                    Property.name
+                )
+            ).all()
+        )
+
+    def search_constraints(
+        self,
+        query: str,
+        *,
+        property_names: tuple[str, ...] = (),
+        locations: tuple[str, ...] = (),
+        bedroom_count: int | None = None,
+        minimum_rent_cents: int | None = None,
+        maximum_rent_cents: int | None = None,
+        available_only: bool = False,
+        limit: int = 3,
+    ) -> list[PropertySearchResult]:
+        """Search and enforce supported structured unit constraints."""
+        structured = any(
+            (
+                property_names,
+                locations,
+                bedroom_count is not None,
+                minimum_rent_cents is not None,
+                maximum_rent_cents is not None,
+                available_only,
+            )
+        )
+        if not structured:
+            return self.search(query, limit=limit)
+
+        filters = []
+        if property_names:
+            filters.append(or_(*(Property.name.ilike(name) for name in property_names)))
+        if locations:
+            filters.append(
+                or_(
+                    *(
+                        or_(Property.city.ilike(location), Property.state.ilike(location))
+                        for location in locations
+                    )
+                )
+            )
+        unit_filters = []
+        if bedroom_count is not None:
+            unit_filters.append(Unit.bedroom_count == bedroom_count)
+        if minimum_rent_cents is not None:
+            unit_filters.append(Unit.rent_cents >= minimum_rent_cents)
+        if maximum_rent_cents is not None:
+            unit_filters.append(Unit.rent_cents <= maximum_rent_cents)
+        if available_only:
+            unit_filters.append(Unit.status == "available")
+        if unit_filters:
+            filters.append(and_(*unit_filters))
+        statement = (
+            select(Property)
+            .options(selectinload(Property.units))
+            .join(Unit)
+            .where(and_(*filters))
+            .distinct()
+            .order_by(Property.name)
+            .limit(limit)
+        )
+        properties = self.session.scalars(statement).all()
+        return [
+            PropertySearchResult(
+                property=item,
+                matched_units=tuple(
+                    unit
+                    for unit in item.units
+                    if (bedroom_count is None or unit.bedroom_count == bedroom_count)
+                    and (minimum_rent_cents is None or unit.rent_cents >= minimum_rent_cents)
+                    and (maximum_rent_cents is None or unit.rent_cents <= maximum_rent_cents)
+                    and (not available_only or unit.status == "available")
+                ),
+            )
+            for item in properties
+        ]
+
     def get_units_by_number(self, unit_number: str) -> list[Unit]:
         """Return exact unit facts by caller-facing unit number."""
         normalized_unit_number = normalize_unit_number(unit_number)
@@ -169,7 +259,18 @@ _NUMBER_WORDS = {
     "twenty": "20",
 }
 
-_UNIT_MARKERS = {"apartment", "apt", "home", "unit", "number", "no"}
+_UNIT_MARKERS = {
+    "apartment",
+    "apartments",
+    "apt",
+    "apts",
+    "home",
+    "homes",
+    "unit",
+    "units",
+    "number",
+    "no",
+}
 _QUERY_STOPWORDS = _UNIT_MARKERS | {"about", "and", "are", "available", "for", "the", "with"}
 
 
@@ -179,7 +280,23 @@ def normalize_unit_number(value: str) -> str | None:
     if not tokens:
         return None
 
-    normalized_parts = [_NUMBER_WORDS.get(token, token) for token in tokens]
+    normalized_parts: list[str] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        number = _NUMBER_WORDS.get(token)
+        if (
+            number is not None
+            and int(number) >= 20
+            and index + 1 < len(tokens)
+            and (ones := _NUMBER_WORDS.get(tokens[index + 1])) is not None
+            and int(ones) < 10
+        ):
+            normalized_parts.append(str(int(number) + int(ones)))
+            index += 2
+            continue
+        normalized_parts.append(number if number is not None else token)
+        index += 1
     normalized = "".join(normalized_parts).upper()
     return normalized if any(character.isdigit() for character in normalized) else None
 

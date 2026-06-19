@@ -89,6 +89,12 @@ class WorkerToolSet:
             return timed_tools
         return [decorator(tool) for tool in timed_tools]
 
+    def capture_as_livekit_tool(self) -> Callable[..., Awaitable[dict]]:
+        """Return only the guarded write tool for hybrid grounding mode."""
+        tool = _async_tool(self.capture_prospect_interest, record_tool=self.record_tool)
+        decorator = _livekit_tool_decorator()
+        return decorator(tool) if decorator is not None else tool
+
 
 def _livekit_tool_decorator() -> Callable[[Callable[..., dict]], Callable[..., dict]] | None:
     try:

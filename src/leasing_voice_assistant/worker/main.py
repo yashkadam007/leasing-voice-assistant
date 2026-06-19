@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Any
 
+from leasing_voice_assistant.agent.grounding import GroundedTurnContextBuilder
 from leasing_voice_assistant.core.config import Settings, get_settings
 from leasing_voice_assistant.db.seed import seed_database
 from leasing_voice_assistant.db.session import (
@@ -20,6 +21,7 @@ from leasing_voice_assistant.db.session import (
 )
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.providers.factory import ProviderFactory
+from leasing_voice_assistant.worker.agent import GroundingCoordinator, LeasingVoiceAgent
 from leasing_voice_assistant.worker.call_context import build_call_context
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder, JsonlMetricsWriter
 from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
@@ -156,7 +158,10 @@ async def job_entrypoint(ctx: Any) -> None:
         await _start_agent_session(
             ctx=ctx,
             provider_clients=provider_clients,
-            tools=tools.as_livekit_tools(),
+            worker_tools=tools,
+            state=state,
+            db_session=db_session,
+            settings=settings,
             call_metrics=call_metrics,
         )
 
@@ -172,11 +177,13 @@ async def _start_agent_session(
     *,
     ctx: Any,
     provider_clients: Any,
-    tools: list[Any],
+    worker_tools: Any,
+    state: Any,
+    db_session: Any,
+    settings: Settings,
     call_metrics: CallMetricsRecorder,
 ) -> None:
     agents = import_module("livekit.agents")
-    agent_class = agents.Agent
     session_class = agents.AgentSession
 
     turn_config = build_turn_detection_config()
@@ -187,7 +194,27 @@ async def _start_agent_session(
         turn_handling=build_turn_handling_options(agents, turn_config),
     )
     install_session_logging(session, call_metrics=call_metrics)
-    agent = agent_class(instructions=initial_instructions(), tools=tools)
+    if settings.grounding_mode == "hybrid":
+        coordinator = GroundingCoordinator(
+            interruption_duration_seconds=turn_config.min_interruption_duration_seconds
+        )
+        coordinator.bind(session)
+        agent = LeasingVoiceAgent(
+            instructions=initial_instructions(),
+            tools=[worker_tools.capture_as_livekit_tool()],
+            builder=GroundedTurnContextBuilder(
+                db_session,
+                deadline_ms=settings.grounding_deadline_ms,
+            ),
+            state=state,
+            coordinator=coordinator,
+            metrics=call_metrics,
+        )
+    else:
+        agent = agents.Agent(
+            instructions=initial_instructions(),
+            tools=worker_tools.as_livekit_tools(),
+        )
     await _maybe_await(session.start(room=ctx.room, agent=agent))
     session.say(initial_greeting(), allow_interruptions=True)
 
@@ -286,6 +313,15 @@ def install_session_logging(
                 }
             )
         logger.info("voice_session.function_tools_executed tools=%s", tool_summaries)
+
+    @session.on("metrics_collected")
+    def _on_metrics_collected(event: Any) -> None:
+        metrics = getattr(event, "metrics", None)
+        if call_metrics is not None and getattr(metrics, "type", None) in {
+            "llm_metrics",
+            "realtime_model_metrics",
+        }:
+            call_metrics.record_llm_request(metrics)
 
     @session.on("error")
     def _on_error(event: Any) -> None:

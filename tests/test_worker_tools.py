@@ -89,3 +89,23 @@ def test_livekit_tools_are_awaitable_and_preserve_signature() -> None:
         result = asyncio.run(search_properties(query="Aurora Heights"))
 
         assert result["status"] == "matched"
+
+
+def test_hybrid_livekit_surface_exposes_only_capture() -> None:
+    engine = create_sqlite_engine("sqlite:///:memory:")
+    initialize_database(engine)
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        seed_database(session)
+        session.commit()
+        tool = build_worker_tools(
+            session, build_call_context().to_call_state()
+        ).capture_as_livekit_tool()
+
+        assert tool.__name__ == "capture_prospect_interest"
+        assert set(inspect.signature(tool).parameters) == {
+            "caller_name",
+            "caller_email",
+            "confirmed_interest",
+            "notes",
+        }

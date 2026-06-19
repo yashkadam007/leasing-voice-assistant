@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 TURN_LATENCY_FIELDS = (
+    "grounding_duration_ms",
     "tool_duration_ms",
     "transcription_ms",
     "end_of_turn_ms",
@@ -62,6 +63,8 @@ class CallMetricsRecorder:
         self._connected_at = connected_at if connected_at is not None else time.monotonic()
         self._pending_user_metrics: dict[str, Any] = {}
         self._pending_tools: list[dict[str, Any]] = []
+        self._pending_grounding: dict[str, Any] = {}
+        self._pending_llm_requests: list[dict[str, Any]] = []
         self._turn_id = 0
         self._connected_to_greeting_ms: int | None = None
         self._interruption_count = 0
@@ -80,6 +83,44 @@ class CallMetricsRecorder:
     def record_user_message(self, metrics: Any) -> None:
         """Retain only the timing fields from the latest committed user message."""
         self._pending_user_metrics = _metrics_mapping(metrics)
+
+    def record_grounding(
+        self,
+        outcome: Any | None,
+        *,
+        duration_ms: float,
+        cancelled: bool = False,
+    ) -> None:
+        """Queue content-free grounding metadata for the current turn."""
+        payload = getattr(outcome, "payload", {}) if outcome is not None else {}
+        results = payload.get("results", []) if isinstance(payload, dict) else []
+        previously_cancelled = bool(self._pending_grounding.get("grounding_cancelled"))
+        self._pending_grounding = {
+            "grounding_applied": outcome is not None and not cancelled,
+            "grounding_duration_ms": round(duration_ms),
+            "grounding_statuses": list(payload.get("statuses", [])),
+            "grounding_source_types": list(
+                dict.fromkeys(
+                    str(item.get("source_type"))
+                    for item in results
+                    if isinstance(item, dict) and item.get("source_type")
+                )
+            ),
+            "grounding_result_count": len(results),
+            "grounding_cancelled": cancelled or previously_cancelled,
+            "grounding_deadline_exceeded": bool(getattr(outcome, "deadline_exceeded", False)),
+            "grounding_needs_clarification": "needs_clarification" in payload.get("statuses", []),
+        }
+
+    def record_llm_request(self, metrics: Any) -> None:
+        """Queue one content-free LLM phase timing for the current assistant turn."""
+        self._pending_llm_requests.append(
+            {
+                "duration_ms": _seconds_to_ms(getattr(metrics, "duration", None)),
+                "ttft_ms": _seconds_to_ms(getattr(metrics, "ttft", None)),
+                "cancelled": bool(getattr(metrics, "cancelled", False)),
+            }
+        )
 
     def record_assistant_message(self, metrics: Any, *, interrupted: bool) -> None:
         """Write a completed assistant turn using its paired user and tool metrics."""
@@ -110,10 +151,15 @@ class CallMetricsRecorder:
             "e2e_ms": _seconds_to_ms(assistant_metrics.get("e2e_latency")),
             "assistant_duration_ms": _duration_ms(assistant_metrics),
             "interrupted": interrupted,
+            "llm_request_count": len(self._pending_llm_requests) or None,
+            "llm_requests": list(self._pending_llm_requests),
+            **self._pending_grounding,
         }
         self.writer.write(record)
         self._pending_user_metrics = {}
         self._pending_tools = []
+        self._pending_grounding = {}
+        self._pending_llm_requests = []
 
     def record_agent_state(self, new_state: Any) -> None:
         """Capture the first transition to speaking as greeting playback start."""
@@ -180,12 +226,18 @@ def format_summary(records: Iterable[Mapping[str, Any]]) -> str:
         lines.append(_format_distribution(field, _numeric_values(source, field)))
 
     tool_turns = [turn for turn in turns if turn.get("has_tool_call")]
-    non_tool_turns = [turn for turn in turns if not turn.get("has_tool_call")]
+    grounded_turns = [turn for turn in turns if turn.get("grounding_applied")]
+    non_tool_turns = [
+        turn
+        for turn in turns
+        if not turn.get("has_tool_call") and not turn.get("grounding_applied")
+    ]
     lines.extend(
         [
             "",
             "End-to-end latency by turn type (ms)",
             _format_distribution("tool", _numeric_values(tool_turns, "e2e_ms")),
+            _format_distribution("read_grounded", _numeric_values(grounded_turns, "e2e_ms")),
             _format_distribution("non_tool", _numeric_values(non_tool_turns, "e2e_ms")),
             "",
             "Tool duration by name (ms)",

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Milestones 1 through 6 are complete. The end-to-end grounded conversation path is implemented in code and documented through the architecture, runbook, and readiness notes. The demo call recording/video link is expected to be supplied in the submission email after the final smoke test against the configured telephony/provider accounts.
+Milestones 1 through 6 are complete. ADR 0007's hybrid pre-LLM read-grounding path is implemented behind a typed rollout setting and awaits matched-call acceptance validation. The demo call recording/video link is expected to be supplied in the submission email after the final smoke test against the configured telephony/provider accounts.
 
 ## Milestone Status
 
@@ -16,6 +16,7 @@ Milestones 1 through 6 are complete. The end-to-end grounded conversation path i
 | 6. LiveKit SIP Call Pipeline | Complete | Accepted in `docs/project/adr/0006-livekit-sip-call-pipeline.md` | Implemented | LiveKit worker, SIP metadata mapping, provider setup, tool adapters, prompt defaults, turn handling, realtime diagnostics, and SIP runbook are in place. |
 | 7. End-to-End Grounded Conversation and Prospect Capture | Mostly complete | Covered by previous ADRs and architecture docs | Implemented locally; demo proof link will be sent in email | Expected grounded answers, clarification behavior, safe capture, and verification are documented through the README and architecture docs. |
 | 8. Evaluation, Documentation, and Demo Evidence | In progress | Not planned as a separate ADR | Metrics capture implemented; baseline calls and demo link pending | Local JSONL turn/call measurement and summary reporting are implemented alongside the evaluation documentation. |
+| 9. Pre-LLM Read Grounding | Implemented; validation pending | Accepted in `docs/project/adr/0007-pre-llm-grounding-for-low-latency-read-turns.md` | Implemented behind `GROUNDING_MODE` | Deterministic bounded reads, cancellation, context injection, and grounding metrics are in place; matched-call acceptance remains. |
 
 ## Implemented Assignment Requirements
 
