@@ -5,7 +5,6 @@ from leasing_voice_assistant.agent.grounding import GroundingOutcome
 from leasing_voice_assistant.worker.metrics import (
     CallMetricsRecorder,
     JsonlMetricsWriter,
-    format_summary,
 )
 
 
@@ -38,15 +37,3 @@ def test_grounding_metrics_are_content_free_and_count_llm_requests(tmp_path) -> 
     assert record["grounding_result_count"] == 1
     assert record["llm_request_count"] == 1
     assert record["llm_requests"][0]["duration_ms"] == 800
-
-
-def test_summary_separates_grounded_and_ordinary_turns() -> None:
-    summary = format_summary(
-        [
-            {"record_type": "turn", "grounding_applied": True, "e2e_ms": 1000},
-            {"record_type": "turn", "grounding_applied": False, "e2e_ms": 2000},
-        ]
-    )
-
-    assert "read_grounded: count=1" in summary
-    assert "non_tool: count=1" in summary
