@@ -246,17 +246,20 @@ barge-in as first-class acceptance measures rather than considering any earlier 
 
 ## Implementation Shape
 
-Keep the change inside the worker and metrics boundaries:
+Keep acknowledgment coordination inside the worker and metrics boundaries. The agent hook it
+implements is defined with the leasing agent:
 
 ```text
-src/leasing_voice_assistant/worker/
-  acknowledgments.py     # phrase catalog, call-scoped policy, and coordinator state
-  agent.py               # expose deterministic grounding classification and turn epoch
-  main.py                # bind the coordinator to the LiveKit session
-  metrics.py             # acknowledgment and perceived-response measurements
+src/leasing_voice_assistant/
+  agent/
+    voice.py             # consume the narrow acknowledgment hook
+  worker/
+    acknowledgments.py   # phrase catalog, call-scoped policy, and coordinator state
+    main.py              # bind the coordinator to the LiveKit session
+    metrics.py           # acknowledgment and perceived-response measurements
 tests/
+  test_agent_voice.py
   test_worker_acknowledgments.py
-  test_worker_agent.py
   test_worker_metrics.py
 ```
 
@@ -331,7 +334,7 @@ experiment rather than adding longer filler.
 - `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md`
 - `docs/project/adr/0006-livekit-sip-call-pipeline.md`
 - `docs/project/adr/0007-pre-llm-grounding-for-low-latency-read-turns.md`
-- `src/leasing_voice_assistant/worker/agent.py`
+- `src/leasing_voice_assistant/agent/voice.py`
 - `src/leasing_voice_assistant/worker/main.py`
 - `src/leasing_voice_assistant/worker/metrics.py`
 

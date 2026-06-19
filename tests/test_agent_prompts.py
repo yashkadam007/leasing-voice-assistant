@@ -1,4 +1,4 @@
-from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
+from leasing_voice_assistant.agent.prompts import initial_greeting, initial_instructions
 
 
 def test_prompt_uses_voice_safe_formatting_rules() -> None:

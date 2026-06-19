@@ -11,6 +11,8 @@ from importlib import import_module
 from typing import Any
 
 from leasing_voice_assistant.agent.grounding import GroundedTurnContextBuilder
+from leasing_voice_assistant.agent.prompts import initial_greeting, initial_instructions
+from leasing_voice_assistant.agent.voice import LeasingVoiceAgent
 from leasing_voice_assistant.core.config import Settings, get_settings
 from leasing_voice_assistant.db.seed import seed_database
 from leasing_voice_assistant.db.session import (
@@ -25,11 +27,10 @@ from leasing_voice_assistant.worker.acknowledgments import (
     AcknowledgmentCoordinator,
     deepgram_synthesizer,
 )
-from leasing_voice_assistant.worker.agent import GroundingCoordinator, LeasingVoiceAgent
 from leasing_voice_assistant.worker.call_context import build_call_context
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder, JsonlMetricsWriter
-from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
 from leasing_voice_assistant.worker.tools import build_worker_tools
+from leasing_voice_assistant.worker.turn_coordination import GroundingCoordinator
 
 logger = logging.getLogger(__name__)
 

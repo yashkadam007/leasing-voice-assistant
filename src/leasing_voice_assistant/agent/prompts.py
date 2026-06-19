@@ -1,4 +1,4 @@
-"""Realtime voice prompts for the LiveKit leasing worker."""
+"""Identity and speaking behavior for the leasing voice agent."""
 
 INITIAL_GREETING = "Hi, this is Kiara from the leasing team. How can I help you today?"
 

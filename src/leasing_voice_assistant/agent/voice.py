@@ -1,12 +1,11 @@
-"""Call-scoped LiveKit agent for pre-LLM grounding."""
+"""Leasing voice agent definition with pre-LLM grounding."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from collections.abc import Callable
-from typing import Any
+from collections.abc import AsyncIterable, Callable
+from typing import Any, Protocol
 
 from livekit.agents import Agent, StopResponse
 
@@ -17,70 +16,36 @@ from leasing_voice_assistant.agent.grounding import (
     GroundingOutcome,
 )
 from leasing_voice_assistant.agent.state import CallState
-from leasing_voice_assistant.worker.acknowledgments import AcknowledgmentCoordinator
-from leasing_voice_assistant.worker.metrics import CallMetricsRecorder
 
 logger = logging.getLogger(__name__)
 
 
-class GroundingCoordinator:
-    """Track caller activity and invalidate stale grounding operations."""
+class GroundingCancellationSource(Protocol):
+    """Provide a cancellation check for one grounding operation."""
 
-    def __init__(self, *, interruption_duration_seconds: float = 0.5) -> None:
-        self.epoch = 0
-        self._caller_speaking = False
-        self._activity_confirmed = False
-        self._timer: asyncio.TimerHandle | None = None
-        self._interruption_duration_seconds = interruption_duration_seconds
-        self._invalidation_callbacks: list[Callable[[], None]] = []
+    def token(self) -> tuple[int, Callable[[], bool]]: ...
 
-    def bind(self, session: Any) -> None:
-        """Observe only the events needed for cooperative cancellation."""
 
-        @session.on("user_state_changed")
-        def _on_user_state_changed(event: Any) -> None:
-            if str(getattr(event, "new_state", "")) == "speaking":
-                self._begin_activity()
-            else:
-                self._end_activity()
+class GroundingMetricsSink(Protocol):
+    """Record content-free grounding timing and outcome metadata."""
 
-        @session.on("user_input_transcribed")
-        def _on_user_input_transcribed(event: Any) -> None:
-            if str(getattr(event, "transcript", "")).strip():
-                self.confirm_activity()
+    def record_grounding(
+        self,
+        outcome: Any | None,
+        *,
+        duration_ms: float,
+        cancelled: bool = False,
+    ) -> None: ...
 
-    def token(self) -> tuple[int, Any]:
-        epoch = self.epoch
-        return epoch, lambda: self.epoch != epoch
 
-    def confirm_activity(self) -> None:
-        """Advance once when VAD activity has transcript evidence."""
-        if self._caller_speaking and not self._activity_confirmed:
-            self._activity_confirmed = True
-            self.epoch += 1
-            for callback in self._invalidation_callbacks:
-                callback()
+class AcknowledgmentHook(Protocol):
+    """Coordinate optional speech before the substantive response."""
 
-    def add_invalidation_callback(self, callback: Any) -> None:
-        """Run a callback when confirmed caller activity advances the epoch."""
-        self._invalidation_callbacks.append(callback)
+    def begin_turn(self) -> int: ...
 
-    def _begin_activity(self) -> None:
-        self._caller_speaking = True
-        self._activity_confirmed = False
-        if self._timer is not None:
-            self._timer.cancel()
-        loop = asyncio.get_running_loop()
-        self._timer = loop.call_later(
-            self._interruption_duration_seconds,
-            self.confirm_activity,
-        )
+    def set_grounding(self, epoch: int, outcome: GroundingOutcome) -> None: ...
 
-    def _end_activity(self) -> None:
-        self._caller_speaking = False
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
+    def wrap_substantive(self, substantive: AsyncIterable[Any]) -> AsyncIterable[Any]: ...
 
 
 class LeasingVoiceAgent(Agent):
@@ -93,9 +58,9 @@ class LeasingVoiceAgent(Agent):
         tools: list[Any],
         builder: GroundedTurnContextBuilder,
         state: CallState,
-        coordinator: GroundingCoordinator,
-        metrics: CallMetricsRecorder | None = None,
-        acknowledgments: AcknowledgmentCoordinator | None = None,
+        coordinator: GroundingCancellationSource,
+        metrics: GroundingMetricsSink | None = None,
+        acknowledgments: AcknowledgmentHook | None = None,
     ) -> None:
         super().__init__(instructions=instructions, tools=tools)
         self._builder = builder
@@ -115,7 +80,7 @@ class LeasingVoiceAgent(Agent):
 
         ack_epoch = self._acknowledgments.begin_turn() if self._acknowledgments else None
 
-        text = _message_text(new_message)
+        text = message_text(new_message)
         _epoch, is_cancelled = self._coordinator.token()
         started = time.monotonic()
         cancelled = False
@@ -169,7 +134,8 @@ class LeasingVoiceAgent(Agent):
         )
 
 
-def _message_text(message: Any) -> str:
+def message_text(message: Any) -> str:
+    """Return normalized text from a LiveKit-style chat message."""
     text_content = getattr(message, "text_content", None)
     if isinstance(text_content, str):
         return text_content.strip()

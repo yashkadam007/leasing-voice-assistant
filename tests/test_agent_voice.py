@@ -5,16 +5,31 @@ from livekit.agents import ChatContext, ChatMessage, StopResponse
 
 from leasing_voice_assistant.agent.grounding import GroundedTurnContextBuilder
 from leasing_voice_assistant.agent.state import CallState
+from leasing_voice_assistant.agent.voice import LeasingVoiceAgent
 from leasing_voice_assistant.db.seed import seed_database
 from leasing_voice_assistant.db.session import (
     create_session_factory,
     create_sqlite_engine,
     initialize_database,
 )
-from leasing_voice_assistant.worker.agent import GroundingCoordinator, LeasingVoiceAgent
 
 
-def _agent_and_session():
+class _CancellationSource:
+    def __init__(self, *, cancel_after_checks: int | None = None) -> None:
+        self._cancel_after_checks = cancel_after_checks
+
+    def token(self):
+        checks = 0
+
+        def is_cancelled() -> bool:
+            nonlocal checks
+            checks += 1
+            return self._cancel_after_checks is not None and checks > self._cancel_after_checks
+
+        return 0, is_cancelled
+
+
+def _agent_and_session(*, coordinator=None):
     engine = create_sqlite_engine("sqlite:///:memory:")
     initialize_database(engine)
     session_factory = create_session_factory(engine)
@@ -22,7 +37,7 @@ def _agent_and_session():
     seed_database(session)
     session.commit()
     state = CallState()
-    coordinator = GroundingCoordinator()
+    coordinator = coordinator or _CancellationSource()
     agent = LeasingVoiceAgent(
         instructions="test",
         tools=[],
@@ -51,14 +66,9 @@ def test_agent_injects_developer_grounding_and_applies_transition_once() -> None
 
 
 def test_agent_discards_stale_grounding_without_state_or_context() -> None:
-    agent, state, coordinator, session = _agent_and_session()
-    original = agent._builder._checkpoint
-
-    async def cancel_during_checkpoint(is_cancelled, deadline):
-        coordinator.epoch += 1
-        await original(is_cancelled, deadline)
-
-    agent._builder._checkpoint = cancel_during_checkpoint
+    agent, state, _coordinator, session = _agent_and_session(
+        coordinator=_CancellationSource(cancel_after_checks=1)
+    )
     context = ChatContext()
     message = ChatMessage(role="user", content=["Aurora Heights"], id="turn-2")
     try:
@@ -68,13 +78,3 @@ def test_agent_discards_stale_grounding_without_state_or_context() -> None:
         assert context.items == []
     finally:
         session.close()
-
-
-def test_false_vad_activity_does_not_advance_epoch() -> None:
-    async def scenario() -> int:
-        coordinator = GroundingCoordinator(interruption_duration_seconds=10)
-        coordinator._begin_activity()
-        coordinator._end_activity()
-        return coordinator.epoch
-
-    assert asyncio.run(scenario()) == 0

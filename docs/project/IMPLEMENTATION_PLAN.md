@@ -176,7 +176,7 @@ Goal: complete the assignment's core conversation loop.
 
 Implemented:
 
-- leasing-specific system prompt in `worker/prompts.py`
+- leasing-specific system prompt in `agent/prompts.py`
 - property clarification flow through `search_properties` and `CallState`
 - exact unit fact flow through `get_unit_details`
 - FAQ/policy flow through `search_knowledge_base`

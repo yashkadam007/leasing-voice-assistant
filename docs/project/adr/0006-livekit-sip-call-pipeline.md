@@ -23,11 +23,12 @@ The initial package layout should keep the worker entrypoint narrow and move cal
 ```text
 src/
   leasing_voice_assistant/
+    agent/
+      prompts.py
     worker/
       __init__.py
       main.py
       call_context.py
-      prompts.py
       tools.py
 tests/
   test_worker_import.py
@@ -38,8 +39,12 @@ The worker should use this responsibility split:
 
 - `main.py`: process entrypoint, LiveKit worker options, job/session startup, and top-level error handling.
 - `call_context.py`: extraction and normalization of caller phone number, room name, participant identity, call SID, and SIP trunk metadata.
-- `prompts.py`: initial realtime agent instructions that keep responses short, grounded, and leasing-focused.
+- `agent/prompts.py`: assistant identity and realtime instructions that keep responses short,
+  grounded, and leasing-focused.
 - `tools.py`: LiveKit function-tool registration backed by the existing `leasing_voice_assistant.agent` domain functions.
+
+This placement clarification keeps the assistant definition in the `agent` package. LiveKit room,
+participant, audio, session, and call lifecycle orchestration remain owned by the worker.
 
 Inbound dispatch should use LiveKit's room/job model rather than a custom FastAPI dispatch endpoint. Twilio should route calls to LiveKit SIP, LiveKit should create or select the room, and the worker should join jobs assigned by LiveKit. FastAPI remains a control plane and should not be inserted into the realtime audio path.
 
@@ -161,7 +166,7 @@ Turn-detection defaults should be treated as configuration, not domain logic. Th
 - `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md`
 - Future `src/leasing_voice_assistant/worker/main.py`
 - Future `src/leasing_voice_assistant/worker/call_context.py`
-- Future `src/leasing_voice_assistant/worker/prompts.py`
+- `src/leasing_voice_assistant/agent/prompts.py`
 - Future `src/leasing_voice_assistant/worker/tools.py`
 - Future `tests/test_worker_call_context.py`
 - Future LiveKit/Twilio SIP runbook

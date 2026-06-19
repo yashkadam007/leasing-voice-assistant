@@ -264,19 +264,25 @@ The implementation should remain milestone-scoped:
 src/leasing_voice_assistant/
   agent/
     grounding.py          # query parsing, pure result assembly, and state transitions
+    prompts.py            # identity and rules for consuming the grounding block
+    voice.py              # LeasingVoiceAgent and context injection
   worker/
-    agent.py              # LeasingVoiceAgent, cancellation coordination, context injection
     main.py               # construct the custom agent and register capture only
     metrics.py            # grounding and remaining tool-cycle measurements
-    prompts.py            # rules for consuming the grounding block
+    turn_coordination.py  # LiveKit event observation and cancellation coordination
     tools.py              # separate read callables from the capture LiveKit tool
 tests/
   test_agent_grounding.py
-  test_worker_agent.py
+  test_agent_prompts.py
+  test_agent_voice.py
   test_worker_metrics.py
-  test_worker_prompts.py
+  test_worker_turn_coordination.py
   test_worker_tools.py
 ```
+
+This ownership clarification does not change the runtime boundary: LiveKit session and call
+lifecycle orchestration remain in `worker/`. Acknowledgment coordination and metrics likewise
+remain worker-owned under ADR 0008; `agent/voice.py` depends only on narrow structural protocols.
 
 The provider-independent builder must be directly unit-testable with an in-memory SQLite database.
 Worker tests should use LiveKit data types but no room, provider client, credentials, or network.
@@ -355,9 +361,11 @@ parallel threads or remote infrastructure.
 - `docs/project/adr/0006-livekit-sip-call-pipeline.md`
 - `src/leasing_voice_assistant/agent/state.py`
 - `src/leasing_voice_assistant/agent/tools.py`
+- `src/leasing_voice_assistant/agent/prompts.py`
+- `src/leasing_voice_assistant/agent/voice.py`
 - `src/leasing_voice_assistant/worker/main.py`
 - `src/leasing_voice_assistant/worker/metrics.py`
-- `src/leasing_voice_assistant/worker/prompts.py`
+- `src/leasing_voice_assistant/worker/turn_coordination.py`
 - `src/leasing_voice_assistant/worker/tools.py`
 - `metrics/voice_metrics.jsonl` (local and ignored)
 
