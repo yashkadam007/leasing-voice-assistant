@@ -47,7 +47,7 @@ Runtime responsibilities:
 - LiveKit SIP converts the phone call into a LiveKit room participant.
 - The worker joins the assigned LiveKit job, waits for the caller participant, and extracts caller metadata such as phone number and call identifiers when available.
 - LiveKit AgentSession streams caller audio through STT, sends turns and tool calls through the LLM, and returns assistant text through TTS.
-- Turn handling is configured centrally in `worker/main.py` with interruption support and conservative endpointing defaults for short leasing conversations.
+- Turn handling is configured centrally in `worker/configuration.py` with interruption support and conservative endpointing defaults for short leasing conversations.
 
 FastAPI is deliberately separate. A failed or stopped API should not be part of the audio loop once the worker is handling LiveKit jobs.
 

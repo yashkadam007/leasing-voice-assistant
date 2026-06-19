@@ -14,7 +14,7 @@ from leasing_voice_assistant.providers.llm.openrouter import OpenRouterLLMAdapte
 from leasing_voice_assistant.providers.stt import deepgram as stt_deepgram
 from leasing_voice_assistant.providers.stt.deepgram import DeepgramSTTAdapter
 from leasing_voice_assistant.providers.tts.deepgram import DeepgramTTSAdapter
-from leasing_voice_assistant.worker.main import build_provider_factory
+from leasing_voice_assistant.worker.configuration import build_provider_factory
 
 
 def settings_for_test(**kwargs) -> Settings:
