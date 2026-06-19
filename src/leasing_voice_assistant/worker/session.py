@@ -19,7 +19,7 @@ from leasing_voice_assistant.worker.configuration import (
 )
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder
 from leasing_voice_assistant.worker.session_logging import install_session_logging
-from leasing_voice_assistant.worker.tools import build_worker_tools
+from leasing_voice_assistant.worker.tools import build_livekit_tool_adapter
 from leasing_voice_assistant.worker.turn_coordination import GroundingCoordinator
 
 
@@ -57,7 +57,7 @@ async def start_agent_session(
             )
             acknowledgments.bind(session)
             coordinator.add_invalidation_callback(acknowledgments.invalidate_current)
-        worker_tools = build_worker_tools(
+        tool_adapter = build_livekit_tool_adapter(
             db_session,
             state,
             record_tool=call_metrics.record_tool,
@@ -71,7 +71,7 @@ async def start_agent_session(
         )
         agent = LeasingVoiceAgent(
             instructions=initial_instructions(),
-            tools=[worker_tools.capture_as_livekit_tool()],
+            tools=[tool_adapter.capture_tool()],
             builder=GroundedTurnContextBuilder(
                 db_session,
                 deadline_ms=settings.grounding_deadline_ms,
@@ -82,14 +82,14 @@ async def start_agent_session(
             acknowledgments=acknowledgments,
         )
     else:
-        worker_tools = build_worker_tools(
+        tool_adapter = build_livekit_tool_adapter(
             db_session,
             state,
             record_tool=call_metrics.record_tool,
         )
         agent = agents.Agent(
             instructions=initial_instructions(),
-            tools=worker_tools.as_livekit_tools(),
+            tools=tool_adapter.legacy_read_and_capture_tools(),
         )
     await maybe_await(session.start(room=ctx.room, agent=agent))
     session.say(initial_greeting(), allow_interruptions=True)

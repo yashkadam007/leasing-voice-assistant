@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 from leasing_voice_assistant.agent import CallState, LeasingAgentTools
 
 
-class WorkerToolSet:
-    """Call-scoped worker tool surface backed by domain leasing tools."""
+class LiveKitToolAdapter:
+    """Adapt call-scoped leasing tools for LiveKit tool registration."""
 
     def __init__(
         self,
@@ -24,18 +24,18 @@ class WorkerToolSet:
         record_tool: Callable[..., None] | None = None,
         on_tool_started: Callable[[str], None] | None = None,
     ) -> None:
-        self.session = session
-        self.domain_tools = LeasingAgentTools(session, state)
-        self.record_tool = record_tool
-        self.on_tool_started = on_tool_started
+        self._session = session
+        self._domain_tools = LeasingAgentTools(session, state)
+        self._record_tool = record_tool
+        self._on_tool_started = on_tool_started
 
     def search_properties(self, query: str, limit: int = 5) -> dict:
         """Search property and unit records from caller wording."""
-        return self.domain_tools.search_properties(query, limit=limit)
+        return self._domain_tools.search_properties(query, limit=limit)
 
     def get_unit_details(self, unit_number: str) -> dict:
         """Return authoritative facts for a caller-facing unit number."""
-        return self.domain_tools.get_unit_details(unit_number)
+        return self._domain_tools.get_unit_details(unit_number)
 
     def search_knowledge_base(
         self,
@@ -44,7 +44,7 @@ class WorkerToolSet:
         property_identifier: str | None = None,
     ) -> dict:
         """Return source-backed policy or FAQ snippets from the local knowledge base."""
-        return self.domain_tools.search_knowledge_base(
+        return self._domain_tools.search_knowledge_base(
             query,
             limit=limit,
             property_identifier=property_identifier,
@@ -59,21 +59,21 @@ class WorkerToolSet:
     ) -> dict:
         """Create or update a prospect interest only after the safety gate passes."""
         try:
-            result = self.domain_tools.capture_prospect_interest(
+            result = self._domain_tools.capture_prospect_interest(
                 caller_name=caller_name,
                 caller_email=caller_email,
                 confirmed_interest=confirmed_interest,
                 notes=notes,
             )
+            # The worker owns the call-scoped transaction boundary for capture writes.
             if result["status"] == "captured":
-                self.session.commit()
+                self._session.commit()
             return result
         except Exception:
-            self.session.rollback()
+            self._session.rollback()
             raise
 
-    def as_callables(self) -> list[Callable[..., dict]]:
-        """Return undecorated callables for tests or runtimes without LiveKit installed."""
+    def _legacy_callables(self) -> list[Callable[..., dict]]:
         return [
             self.search_properties,
             self.get_unit_details,
@@ -81,22 +81,22 @@ class WorkerToolSet:
             self.capture_prospect_interest,
         ]
 
-    def as_livekit_tools(self) -> list[Callable[..., Awaitable[dict]]]:
-        """Return LiveKit-decorated tools when the installed SDK exposes a decorator."""
+    def legacy_read_and_capture_tools(self) -> list[Callable[..., Awaitable[dict]]]:
+        """Expose the legacy model-facing read and capture tool surface."""
         decorator = _livekit_tool_decorator()
         timed_tools = [
-            _async_tool(tool, record_tool=self.record_tool) for tool in self.as_callables()
+            _async_tool(tool, record_tool=self._record_tool) for tool in self._legacy_callables()
         ]
         if decorator is None:
             return timed_tools
         return [decorator(tool) for tool in timed_tools]
 
-    def capture_as_livekit_tool(self) -> Callable[..., Awaitable[dict]]:
-        """Return only the guarded write tool for hybrid grounding mode."""
+    def capture_tool(self) -> Callable[..., Awaitable[dict]]:
+        """Expose only the guarded write tool for hybrid grounding mode."""
         tool = _async_tool(
             self.capture_prospect_interest,
-            record_tool=self.record_tool,
-            on_tool_started=self.on_tool_started,
+            record_tool=self._record_tool,
+            on_tool_started=self._on_tool_started,
         )
         decorator = _livekit_tool_decorator()
         return decorator(tool) if decorator is not None else tool
@@ -150,15 +150,15 @@ def _async_tool(
     return wrapper
 
 
-def build_worker_tools(
+def build_livekit_tool_adapter(
     session: Session,
     state: CallState,
     *,
     record_tool: Callable[..., None] | None = None,
     on_tool_started: Callable[[str], None] | None = None,
-) -> WorkerToolSet:
-    """Build the call-scoped worker tool adapter."""
-    return WorkerToolSet(
+) -> LiveKitToolAdapter:
+    """Build the call-scoped LiveKit tool adapter."""
+    return LiveKitToolAdapter(
         session,
         state,
         record_tool=record_tool,
