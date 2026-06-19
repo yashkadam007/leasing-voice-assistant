@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from leasing_voice_assistant.agent.grounding import GroundingOutcome
 from leasing_voice_assistant.worker.metrics import CallMetricsRecorder
+from leasing_voice_assistant.worker.turn_coordination import SessionEventSource
 
 AcknowledgmentClass = Literal["capture", "comparison", "policy", "property_search"]
 
@@ -113,15 +114,15 @@ class AcknowledgmentCoordinator:
         self._caller_speaking = False
         self._assistant_speaking = False
 
-    def bind(self, session: Any) -> None:
+    def bind(self, session: SessionEventSource) -> None:
         """Track public LiveKit speaking lifecycle for start-time suppression."""
 
         @session.on("user_state_changed")
-        def _on_user_state_changed(event: Any) -> None:
+        def _on_user_state_changed(event: object) -> None:
             self._caller_speaking = str(getattr(event, "new_state", "")) == "speaking"
 
         @session.on("agent_state_changed")
-        def _on_agent_state_changed(event: Any) -> None:
+        def _on_agent_state_changed(event: object) -> None:
             self._assistant_speaking = str(getattr(event, "new_state", "")) == "speaking"
 
     def begin_turn(self) -> int:

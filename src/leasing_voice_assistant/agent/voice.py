@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import AsyncIterable, Callable
+from collections.abc import AsyncIterable, Callable, Sequence
 from typing import Any, Protocol
 
 from livekit.agents import Agent, StopResponse
 
 from leasing_voice_assistant.agent.grounding import (
     CallStateSnapshot,
-    GroundedTurnContextBuilder,
     GroundingCancelled,
     GroundingOutcome,
 )
@@ -26,12 +25,40 @@ class GroundingCancellationSource(Protocol):
     def token(self) -> tuple[int, Callable[[], bool]]: ...
 
 
+class GroundingBuilder(Protocol):
+    """Build grounding for a turn without owning mutable call state."""
+
+    async def build(
+        self,
+        text: str,
+        snapshot: CallStateSnapshot,
+        *,
+        is_cancelled: Callable[[], bool],
+    ) -> GroundingOutcome: ...
+
+    def unavailable(self, *, deadline_exceeded: bool = False) -> GroundingOutcome: ...
+
+
+class TurnContext(Protocol):
+    """Context surface needed to inject authoritative developer data."""
+
+    def add_message(self, *, role: str, content: str) -> object: ...
+
+
+class UserMessage(Protocol):
+    """LiveKit-style caller message consumed by the agent."""
+
+    id: str
+    text_content: str | None
+    content: Sequence[object]
+
+
 class GroundingMetricsSink(Protocol):
     """Record content-free grounding timing and outcome metadata."""
 
     def record_grounding(
         self,
-        outcome: Any | None,
+        outcome: GroundingOutcome | None,
         *,
         duration_ms: float,
         cancelled: bool = False,
@@ -56,7 +83,7 @@ class LeasingVoiceAgent(Agent):
         *,
         instructions: str,
         tools: list[Any],
-        builder: GroundedTurnContextBuilder,
+        builder: GroundingBuilder,
         state: CallState,
         coordinator: GroundingCancellationSource,
         metrics: GroundingMetricsSink | None = None,
@@ -71,7 +98,7 @@ class LeasingVoiceAgent(Agent):
         self._cache: dict[str, GroundingOutcome] = {}
         self._applied_transitions: set[str] = set()
 
-    async def on_user_turn_completed(self, turn_ctx: Any, new_message: Any) -> None:
+    async def on_user_turn_completed(self, turn_ctx: TurnContext, new_message: UserMessage) -> None:
         message_id = str(getattr(new_message, "id", "") or id(new_message))
         cached = self._cache.get(message_id)
         if cached is not None:
@@ -128,13 +155,13 @@ class LeasingVoiceAgent(Agent):
         return self._acknowledgments.wrap_substantive(substantive)
 
     @staticmethod
-    def _inject(turn_ctx: Any, outcome: GroundingOutcome) -> None:
+    def _inject(turn_ctx: TurnContext, outcome: GroundingOutcome) -> None:
         turn_ctx.add_message(
             role="developer", content=f"GROUNDING_DATA_JSON\n{outcome.serialized()}"
         )
 
 
-def message_text(message: Any) -> str:
+def message_text(message: UserMessage) -> str:
     """Return normalized text from a LiveKit-style chat message."""
     text_content = getattr(message, "text_content", None)
     if isinstance(text_content, str):

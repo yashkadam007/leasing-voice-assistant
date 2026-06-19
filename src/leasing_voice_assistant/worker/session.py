@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from importlib import import_module
-from typing import Any
+from typing import Protocol
+
+from sqlalchemy.orm import Session
 
 from leasing_voice_assistant.agent.grounding import GroundedTurnContextBuilder
 from leasing_voice_assistant.agent.prompts import initial_greeting, initial_instructions
+from leasing_voice_assistant.agent.state import CallState
 from leasing_voice_assistant.agent.voice import LeasingVoiceAgent
 from leasing_voice_assistant.core.config import Settings
+from leasing_voice_assistant.providers.factory import ProviderClients
 from leasing_voice_assistant.worker.acknowledgments import (
     AcknowledgmentCoordinator,
     deepgram_synthesizer,
@@ -23,12 +28,18 @@ from leasing_voice_assistant.worker.tools import build_livekit_tool_adapter
 from leasing_voice_assistant.worker.turn_coordination import GroundingCoordinator
 
 
+class JobContext(Protocol):
+    """Call-scoped worker context used to start a LiveKit session."""
+
+    room: object
+
+
 async def start_agent_session(
     *,
-    ctx: Any,
-    provider_clients: Any,
-    state: Any,
-    db_session: Any,
+    ctx: JobContext,
+    provider_clients: ProviderClients,
+    state: CallState,
+    db_session: Session,
     settings: Settings,
     call_metrics: CallMetricsRecorder,
 ) -> None:
@@ -95,7 +106,7 @@ async def start_agent_session(
     session.say(initial_greeting(), allow_interruptions=True)
 
 
-async def maybe_await(value: Any) -> Any:
+async def maybe_await[T](value: T | Awaitable[T]) -> T:
     if hasattr(value, "__await__"):
         return await value
     return value

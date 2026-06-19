@@ -6,23 +6,11 @@ from leasing_voice_assistant.agent.grounding.builder import GroundedTurnContextB
 from leasing_voice_assistant.agent.grounding.models import CallStateSnapshot, GroundingCancelled
 from leasing_voice_assistant.agent.grounding.parser import GroundingQueryParser
 from leasing_voice_assistant.agent.state import CallState, ResolvedTarget
-from leasing_voice_assistant.db.seed import seed_database
-from leasing_voice_assistant.db.session import (
-    create_session_factory,
-    create_sqlite_engine,
-    initialize_database,
-)
 
 
 @pytest.fixture()
-def grounding_builder():
-    engine = create_sqlite_engine("sqlite:///:memory:")
-    initialize_database(engine)
-    session_factory = create_session_factory(engine)
-    with session_factory() as session:
-        seed_database(session)
-        session.commit()
-        yield GroundedTurnContextBuilder(session)
+def grounding_builder(seeded_db_session):
+    return GroundedTurnContextBuilder(seeded_db_session)
 
 
 def test_parser_extracts_supported_compound_comparison() -> None:
@@ -127,28 +115,22 @@ def test_builder_cooperatively_cancels_before_state_transition(grounding_builder
         )
 
 
-def test_builder_returns_unavailable_when_deadline_expires() -> None:
-    engine = create_sqlite_engine("sqlite:///:memory:")
-    initialize_database(engine)
-    session_factory = create_session_factory(engine)
-    with session_factory() as session:
-        seed_database(session)
-        session.commit()
-        builder = GroundedTurnContextBuilder(session, deadline_ms=1)
+def test_builder_returns_unavailable_when_deadline_expires(seeded_db_session) -> None:
+    builder = GroundedTurnContextBuilder(seeded_db_session, deadline_ms=1)
 
-        original = builder.properties.list_property_identifiers
+    original = builder.properties.list_property_identifiers
 
-        def slow_catalog():
-            import time
+    def slow_catalog():
+        import time
 
-            result = original()
-            time.sleep(0.005)
-            return result
+        result = original()
+        time.sleep(0.005)
+        return result
 
-        builder.properties.list_property_identifiers = slow_catalog
-        outcome = asyncio.run(
-            builder.build("Aurora Heights", CallStateSnapshot.from_state(CallState()))
-        )
+    builder.properties.list_property_identifiers = slow_catalog
+    outcome = asyncio.run(
+        builder.build("Aurora Heights", CallStateSnapshot.from_state(CallState()))
+    )
 
     assert outcome.payload["statuses"] == ["unavailable"]
     assert outcome.deadline_exceeded is True
