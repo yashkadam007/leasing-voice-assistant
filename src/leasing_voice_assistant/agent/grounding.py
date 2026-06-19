@@ -12,13 +12,13 @@ from typing import Any, Literal
 
 from sqlalchemy.orm import Session
 
-from leasing_voice_assistant.agent.state import CallState, ResolvedTarget
-from leasing_voice_assistant.agent.tools import (
-    _candidate_from_result,
-    _property_summary,
-    _target_from_candidate,
-    _unit_details,
+from leasing_voice_assistant.agent.resolution import (
+    property_candidate_from_result,
+    property_facts,
+    resolved_target_from_candidate,
+    unit_facts,
 )
+from leasing_voice_assistant.agent.state import CallState, ResolvedTarget
 from leasing_voice_assistant.knowledge.retrieval import KnowledgeBase
 from leasing_voice_assistant.repositories.properties import (
     PropertiesRepository,
@@ -289,7 +289,9 @@ class GroundedTurnContextBuilder:
             await self._checkpoint(is_cancelled, deadline)
             if property_results:
                 candidates = [
-                    _candidate_from_result(item, query=text, total_results=len(property_results))
+                    property_candidate_from_result(
+                        item, query=text, total_results=len(property_results)
+                    )
                     for item in property_results
                 ]
                 status: GroundingStatus = "matched" if len(candidates) == 1 else "ambiguous"
@@ -383,10 +385,10 @@ class GroundedTurnContextBuilder:
             return None
         if target.target_type == "property":
             item = self.properties.get_property(target.target_id)
-            facts = _property_summary(item) if item else None
+            facts = property_facts(item) if item else None
         else:
             item = self.properties.get_unit(target.target_id)
-            facts = _unit_details(item) if item else None
+            facts = unit_facts(item) if item else None
         if facts is None:
             return None
         return {"status": "matched", "source_type": f"current_{target.target_type}", "facts": facts}
@@ -410,12 +412,12 @@ class GroundedTurnContextBuilder:
                 "status": "ambiguous",
                 "source_type": "unit_database",
                 "unit_number": unit_number,
-                "candidates": [_unit_details(item) for item in units],
+                "candidates": [unit_facts(item) for item in units],
             }
         return {
             "status": "matched",
             "source_type": "unit_database",
-            "unit": _unit_details(units[0]),
+            "unit": unit_facts(units[0]),
         }
 
     @staticmethod
@@ -458,16 +460,16 @@ class GroundedTurnContextBuilder:
                 True,
             ), True
         if len(properties) == 1:
-            candidate = _candidate_from_result(
+            candidate = property_candidate_from_result(
                 properties[0], query=" ".join(query.property_terms), total_results=1
             )
-            return _target_from_candidate(candidate, ambiguity_resolved=True), True
+            return resolved_target_from_candidate(candidate, ambiguity_resolved=True), True
         if len(properties) > 1 and (
             query.property_terms or query.location_terms or query.availability_requested
         ):
-            candidate = _candidate_from_result(
+            candidate = property_candidate_from_result(
                 properties[0], query=" ".join(query.property_terms), total_results=len(properties)
             )
             candidate["ambiguous"] = True
-            return _target_from_candidate(candidate, ambiguity_resolved=False), True
+            return resolved_target_from_candidate(candidate, ambiguity_resolved=False), True
         return None, False

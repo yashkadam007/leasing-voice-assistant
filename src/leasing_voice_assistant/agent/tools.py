@@ -1,17 +1,18 @@
 """Domain implementation behind leasing agent tools."""
 
-from decimal import Decimal
-
 from sqlalchemy.orm import Session
 
+from leasing_voice_assistant.agent.resolution import (
+    property_candidate_from_result,
+    resolved_target_from_candidate,
+    serialize_resolved_target,
+    unit_facts,
+)
 from leasing_voice_assistant.agent.safety import evaluate_capture_safety
 from leasing_voice_assistant.agent.state import CallState, ResolvedTarget
-from leasing_voice_assistant.db.models import Property, Unit
 from leasing_voice_assistant.knowledge.retrieval import KnowledgeBase
 from leasing_voice_assistant.repositories.properties import (
     PropertiesRepository,
-    PropertySearchResult,
-    normalize_unit_number,
 )
 from leasing_voice_assistant.repositories.prospects import ProspectsRepository
 
@@ -35,7 +36,7 @@ class LeasingAgentTools:
         """Search property and unit records from caller wording."""
         results = self.properties.search(query, limit=limit)
         candidates = [
-            _candidate_from_result(result, query=query, total_results=len(results))
+            property_candidate_from_result(result, query=query, total_results=len(results))
             for result in results
         ]
         ambiguous = len(candidates) > 1
@@ -49,10 +50,14 @@ class LeasingAgentTools:
             status = "ambiguous"
 
         if status == "matched":
-            self.state.set_target(_target_from_candidate(candidates[0], ambiguity_resolved=True))
+            self.state.set_target(
+                resolved_target_from_candidate(candidates[0], ambiguity_resolved=True)
+            )
         elif status == "ambiguous":
             best_candidate = max(candidates, key=lambda candidate: candidate["confidence"])
-            self.state.set_target(_target_from_candidate(best_candidate, ambiguity_resolved=False))
+            self.state.set_target(
+                resolved_target_from_candidate(best_candidate, ambiguity_resolved=False)
+            )
         else:
             self.state.set_target(None)
 
@@ -87,7 +92,7 @@ class LeasingAgentTools:
             return {
                 "status": "ambiguous",
                 "unit_number": unit_number,
-                "candidates": [_unit_details(unit) for unit in units],
+                "candidates": [unit_facts(unit) for unit in units],
             }
 
         unit = units[0]
@@ -103,7 +108,7 @@ class LeasingAgentTools:
         )
         return {
             "status": "found",
-            "unit": _unit_details(unit),
+            "unit": unit_facts(unit),
         }
 
     def search_knowledge_base(
@@ -156,7 +161,7 @@ class LeasingAgentTools:
             return {
                 "status": "rejected",
                 "reasons": list(safety.reasons),
-                "target": _target_dict(self.state.current_target),
+                "target": serialize_resolved_target(self.state.current_target),
             }
 
         target = self.state.current_target
@@ -189,141 +194,5 @@ class LeasingAgentTools:
                 "property_id": interest.property_id,
                 "unit_id": interest.unit_id,
             },
-            "target": _target_dict(target),
+            "target": serialize_resolved_target(target),
         }
-
-
-def _candidate_from_result(
-    result: PropertySearchResult,
-    *,
-    query: str,
-    total_results: int,
-) -> dict:
-    property_ = result.property
-    matched_unit = _best_matched_unit(result)
-    match_type, confidence = _score_result(result, query=query, total_results=total_results)
-    target_type = "unit" if matched_unit is not None and match_type == "unit_exact" else "property"
-    target_id = (
-        matched_unit.id if target_type == "unit" and matched_unit is not None else property_.id
-    )
-    label = (
-        f"{property_.name} unit {matched_unit.unit_number}"
-        if target_type == "unit" and matched_unit is not None
-        else property_.name
-    )
-
-    return {
-        "target_type": target_type,
-        "target_id": target_id,
-        "label": label,
-        "confidence": confidence,
-        "match_type": match_type,
-        "ambiguous": False,
-        "property": _property_summary(property_),
-        "available_units": [
-            _unit_summary(unit) for unit in property_.units if unit.status == "available"
-        ],
-        "matched_units": [_unit_summary(unit) for unit in result.matched_units],
-    }
-
-
-def _score_result(
-    result: PropertySearchResult,
-    *,
-    query: str,
-    total_results: int,
-) -> tuple[str, float]:
-    normalized_query = _normalize(query)
-    normalized_unit_number = normalize_unit_number(query)
-    property_ = result.property
-
-    if _normalize(property_.name) == normalized_query:
-        return "property_exact", 0.98
-    if any(_normalize(unit.unit_number) == normalized_query for unit in result.matched_units):
-        return "unit_exact", 0.98
-    if any(unit.unit_number == normalized_unit_number for unit in result.matched_units):
-        return "unit_exact", 0.98
-    if _normalize(property_.name) in normalized_query:
-        return "property_name", 0.92
-    if any(_normalize(unit.unit_number) in normalized_query for unit in result.matched_units):
-        return "unit_exact", 0.9
-    if total_results == 1:
-        return "single_candidate", 0.82
-    return "lexical", 0.62
-
-
-def _best_matched_unit(result: PropertySearchResult) -> Unit | None:
-    if len(result.matched_units) == 1:
-        return result.matched_units[0]
-    return None
-
-
-def _target_from_candidate(candidate: dict, *, ambiguity_resolved: bool) -> ResolvedTarget:
-    return ResolvedTarget(
-        target_type=candidate["target_type"],
-        target_id=candidate["target_id"],
-        label=candidate["label"],
-        confidence=candidate["confidence"],
-        ambiguous=candidate["ambiguous"],
-        ambiguity_resolved=ambiguity_resolved,
-    )
-
-
-def _property_summary(property_: Property) -> dict:
-    return {
-        "id": property_.id,
-        "name": property_.name,
-        "address": property_.address,
-        "city": property_.city,
-        "state": property_.state,
-        "phone": property_.phone,
-        "description": property_.description,
-        "pet_policy": property_.pet_policy,
-        "parking_policy": property_.parking_policy,
-        "application_fee_cents": property_.application_fee_cents,
-        "security_deposit_cents": property_.security_deposit_cents,
-        "lease_terms": property_.lease_terms,
-    }
-
-
-def _unit_summary(unit: Unit) -> dict:
-    return {
-        "id": unit.id,
-        "unit_number": unit.unit_number,
-        "bedroom_count": unit.bedroom_count,
-        "bathroom_count": _decimal_to_float(unit.bathroom_count),
-        "rent_cents": unit.rent_cents,
-        "square_feet": unit.square_feet,
-        "availability_date": unit.availability_date.isoformat(),
-        "status": unit.status,
-        "floor": unit.floor,
-        "view": unit.view,
-    }
-
-
-def _unit_details(unit: Unit) -> dict:
-    details = _unit_summary(unit)
-    details["notes"] = unit.notes
-    details["property"] = _property_summary(unit.property)
-    return details
-
-
-def _target_dict(target: ResolvedTarget | None) -> dict | None:
-    if target is None:
-        return None
-    return {
-        "target_type": target.target_type,
-        "target_id": target.target_id,
-        "label": target.label,
-        "confidence": target.confidence,
-        "ambiguous": target.ambiguous,
-        "ambiguity_resolved": target.ambiguity_resolved,
-    }
-
-
-def _decimal_to_float(value: Decimal) -> float:
-    return float(value)
-
-
-def _normalize(value: str) -> str:
-    return " ".join(value.strip().lower().split())
