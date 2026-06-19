@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     livekit_api_key: str | None = None
     livekit_api_secret: str | None = None
     livekit_agent_name: str = ""
+    voice_metrics_path: str = "metrics/voice_metrics.jsonl"
 
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"

@@ -15,7 +15,7 @@ Milestones 1 through 6 are complete. The end-to-end grounded conversation path i
 | 5. Leasing Agent Tools and Safety Gate | Complete | Accepted in `docs/project/adr/0005-leasing-agent-tools-and-safety-gate.md` | Implemented | `search_properties`, `get_unit_details`, `search_knowledge_base`, `capture_prospect_interest`, `CallState`, and deterministic capture safety are in place. |
 | 6. LiveKit SIP Call Pipeline | Complete | Accepted in `docs/project/adr/0006-livekit-sip-call-pipeline.md` | Implemented | LiveKit worker, SIP metadata mapping, provider setup, tool adapters, prompt defaults, turn handling, realtime diagnostics, and SIP runbook are in place. |
 | 7. End-to-End Grounded Conversation and Prospect Capture | Mostly complete | Covered by previous ADRs and architecture docs | Implemented locally; demo proof link will be sent in email | Expected grounded answers, clarification behavior, safe capture, and verification are documented through the README and architecture docs. |
-| 8. Evaluation, Documentation, and Demo Evidence | In progress | Not planned as a separate ADR | Documentation updated; demo link handled in email | README, architecture, implementation plan, runbook, and readiness review are present. |
+| 8. Evaluation, Documentation, and Demo Evidence | In progress | Not planned as a separate ADR | Metrics capture implemented; baseline calls and demo link pending | Local JSONL turn/call measurement and summary reporting are implemented alongside the evaluation documentation. |
 
 ## Implemented Assignment Requirements
 
@@ -62,6 +62,7 @@ uv run pytest
 ## Known Limitations
 
 - Final voice quality and latency still need to be validated from a recorded real call.
+- Local latency metrics require representative real calls before they can establish a useful baseline.
 - The knowledge layer is lexical, so broad paraphrase coverage is weaker than a vector or hybrid search approach.
 - Call transcripts and tool events are logged but not persisted as first-class database records.
 - There is no browser-based voice fallback for reviewers without telephony credentials.
@@ -72,4 +73,5 @@ uv run pytest
 
 ## Next Action
 
-Run a final voice smoke test with real credentials, add the demo recording/video link to the submission email, and verify the resulting prospect row.
+Capture at least 20 representative calls with the local metrics recorder, then run
+`uv run leasing-voice-metrics` before starting the first latency improvement.

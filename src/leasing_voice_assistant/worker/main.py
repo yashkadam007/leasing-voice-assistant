@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+import uuid
 from dataclasses import dataclass
 from importlib import import_module
 from typing import Any
@@ -19,6 +21,7 @@ from leasing_voice_assistant.db.session import (
 from leasing_voice_assistant.providers.errors import ProviderConfigurationError
 from leasing_voice_assistant.providers.factory import ProviderFactory
 from leasing_voice_assistant.worker.call_context import build_call_context
+from leasing_voice_assistant.worker.metrics import CallMetricsRecorder, JsonlMetricsWriter
 from leasing_voice_assistant.worker.prompts import initial_greeting, initial_instructions
 from leasing_voice_assistant.worker.tools import build_worker_tools
 
@@ -135,19 +138,26 @@ async def job_entrypoint(ctx: Any) -> None:
         seed_database(db_session)
 
     await _maybe_await(ctx.connect())
+    connected_at = time.monotonic()
     participant = await _wait_for_participant(ctx)
     context = build_call_context(
         room=getattr(ctx, "room", None),
         participant=participant,
     )
+    call_metrics = CallMetricsRecorder(
+        call_id=context.call_sid or f"call-{uuid.uuid4()}",
+        writer=JsonlMetricsWriter(settings.voice_metrics_path),
+        connected_at=connected_at,
+    )
 
     with session_scope(session_factory) as db_session:
         state = context.to_call_state()
-        tools = build_worker_tools(db_session, state)
+        tools = build_worker_tools(db_session, state, record_tool=call_metrics.record_tool)
         await _start_agent_session(
             ctx=ctx,
             provider_clients=provider_clients,
             tools=tools.as_livekit_tools(),
+            call_metrics=call_metrics,
         )
 
 
@@ -163,6 +173,7 @@ async def _start_agent_session(
     ctx: Any,
     provider_clients: Any,
     tools: list[Any],
+    call_metrics: CallMetricsRecorder,
 ) -> None:
     agents = import_module("livekit.agents")
     agent_class = agents.Agent
@@ -175,13 +186,17 @@ async def _start_agent_session(
         tts=provider_clients.tts,
         turn_handling=build_turn_handling_options(agents, turn_config),
     )
-    install_session_logging(session)
+    install_session_logging(session, call_metrics=call_metrics)
     agent = agent_class(instructions=initial_instructions(), tools=tools)
     await _maybe_await(session.start(room=ctx.room, agent=agent))
     session.say(initial_greeting(), allow_interruptions=True)
 
 
-def install_session_logging(session: Any) -> None:
+def install_session_logging(
+    session: Any,
+    *,
+    call_metrics: CallMetricsRecorder | None = None,
+) -> None:
     """Attach realtime call diagnostics to a LiveKit agent session."""
 
     @session.on("user_input_transcribed")
@@ -210,12 +225,19 @@ def install_session_logging(session: Any) -> None:
         text = _message_text(item)
         metrics = _latency_metrics(getattr(item, "metrics", {}))
         if role == "user":
+            if call_metrics is not None:
+                call_metrics.record_user_message(getattr(item, "metrics", {}))
             logger.info(
                 "voice_session.user_turn_committed text=%r metrics=%s",
                 text,
                 metrics,
             )
         elif role == "assistant":
+            if call_metrics is not None:
+                call_metrics.record_assistant_message(
+                    getattr(item, "metrics", {}),
+                    interrupted=bool(getattr(item, "interrupted", False)),
+                )
             logger.info(
                 "voice_session.assistant_response_committed text=%r interrupted=%s metrics=%s",
                 text,
@@ -235,10 +257,21 @@ def install_session_logging(session: Any) -> None:
 
     @session.on("agent_state_changed")
     def _on_agent_state_changed(event: Any) -> None:
+        if call_metrics is not None:
+            call_metrics.record_agent_state(getattr(event, "new_state", None))
         logger.info(
             "voice_session.agent_state_changed old_state=%s new_state=%s",
             getattr(event, "old_state", None),
             getattr(event, "new_state", None),
+        )
+
+    @session.on("agent_false_interruption")
+    def _on_agent_false_interruption(event: Any) -> None:
+        if call_metrics is not None:
+            call_metrics.record_false_interruption()
+        logger.info(
+            "voice_session.false_interruption resumed=%s",
+            getattr(event, "resumed", None),
         )
 
     @session.on("function_tools_executed")
@@ -256,6 +289,8 @@ def install_session_logging(session: Any) -> None:
 
     @session.on("error")
     def _on_error(event: Any) -> None:
+        if call_metrics is not None:
+            call_metrics.record_error()
         logger.error(
             "voice_session.error source=%r error=%r",
             getattr(event, "source", None),
@@ -264,6 +299,11 @@ def install_session_logging(session: Any) -> None:
 
     @session.on("close")
     def _on_close(event: Any) -> None:
+        if call_metrics is not None:
+            call_metrics.close(
+                reason=getattr(event, "reason", None),
+                has_error=getattr(event, "error", None) is not None,
+            )
         logger.info(
             "voice_session.closed reason=%s error=%r",
             getattr(event, "reason", None),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from importlib import import_module
@@ -15,9 +16,16 @@ from leasing_voice_assistant.agent import CallState, LeasingAgentTools
 class WorkerToolSet:
     """Call-scoped worker tool surface backed by domain leasing tools."""
 
-    def __init__(self, session: Session, state: CallState) -> None:
+    def __init__(
+        self,
+        session: Session,
+        state: CallState,
+        *,
+        record_tool: Callable[..., None] | None = None,
+    ) -> None:
         self.session = session
         self.domain_tools = LeasingAgentTools(session, state)
+        self.record_tool = record_tool
 
     def search_properties(self, query: str, limit: int = 5) -> dict:
         """Search property and unit records from caller wording."""
@@ -74,9 +82,12 @@ class WorkerToolSet:
     def as_livekit_tools(self) -> list[Callable[..., Awaitable[dict]]]:
         """Return LiveKit-decorated tools when the installed SDK exposes a decorator."""
         decorator = _livekit_tool_decorator()
+        timed_tools = [
+            _async_tool(tool, record_tool=self.record_tool) for tool in self.as_callables()
+        ]
         if decorator is None:
-            return [_async_tool(tool) for tool in self.as_callables()]
-        return [decorator(_async_tool(tool)) for tool in self.as_callables()]
+            return timed_tools
+        return [decorator(tool) for tool in timed_tools]
 
 
 def _livekit_tool_decorator() -> Callable[[Callable[..., dict]], Callable[..., dict]] | None:
@@ -97,16 +108,38 @@ def _livekit_tool_decorator() -> Callable[[Callable[..., dict]], Callable[..., d
     return None
 
 
-def _async_tool(tool: Callable[..., dict]) -> Callable[..., Awaitable[dict]]:
+def _async_tool(
+    tool: Callable[..., dict],
+    *,
+    record_tool: Callable[..., None] | None = None,
+) -> Callable[..., Awaitable[dict]]:
     """Adapt sync domain tools for LiveKit SDKs that await function tools."""
 
     @wraps(tool)
     async def wrapper(*args: Any, **kwargs: Any) -> dict:
-        return tool(*args, **kwargs)
+        started_at = time.monotonic()
+        is_error = False
+        try:
+            return tool(*args, **kwargs)
+        except Exception:
+            is_error = True
+            raise
+        finally:
+            if record_tool is not None:
+                record_tool(
+                    tool.__name__,
+                    (time.monotonic() - started_at) * 1000,
+                    is_error=is_error,
+                )
 
     return wrapper
 
 
-def build_worker_tools(session: Session, state: CallState) -> WorkerToolSet:
+def build_worker_tools(
+    session: Session,
+    state: CallState,
+    *,
+    record_tool: Callable[..., None] | None = None,
+) -> WorkerToolSet:
     """Build the call-scoped worker tool adapter."""
-    return WorkerToolSet(session, state)
+    return WorkerToolSet(session, state, record_tool=record_tool)

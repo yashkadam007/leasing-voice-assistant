@@ -26,6 +26,7 @@ leasing-voice-api = "leasing_voice_assistant.api.main:run"
 leasing-voice-seed = "leasing_voice_assistant.db.seed:main"
 leasing-voice-test-call = "leasing_voice_assistant.worker.test_call:main"
 leasing-voice-worker = "leasing_voice_assistant.worker.main:main"
+leasing-voice-metrics = "leasing_voice_assistant.worker.metrics:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -26,3 +26,6 @@ htmlcov/
 .idea/
 .vscode/
 *.db
+
+# Local voice-call measurement data and reports
+metrics/
